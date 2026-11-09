@@ -16,16 +16,17 @@ module.exports = async (req, res) => {
     media_type = "movie"
   } = req.query;
 
+  const language = "pt-BR";
   let endpoint;
 
   if (action === "trending") {
-    endpoint = "/trending/all/week";
+    endpoint = `/trending/all/week?language=${language}&page=${page}`;
   } else if (action === "search" && query) {
-    endpoint = `/search/multi?query=${encodeURIComponent(query)}&page=${page}`;
+    endpoint = `/search/multi?query=${encodeURIComponent(query)}&page=${page}&language=${language}`;
   } else if (action === "popular") {
-    endpoint = `/movie/popular?page=${page}`;
+    endpoint = `/movie/popular?page=${page}&language=${language}`;
   } else if (action === "details" && id) {
-    endpoint = `/${media_type}/${id}?append_to_response=credits,videos`;
+    endpoint = `/${media_type}/${id}?language=${language}&append_to_response=credits,videos`;
   } else {
     return res.status(400).json({
       error: "Parâmetros inválidos"
@@ -52,4 +53,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-
