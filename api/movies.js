@@ -114,7 +114,7 @@ export default async function handler(req,res){
       const {data}=await tmdb(`/${type}/${q.id}/watch/providers`,{language:lang});
       const p = mapProviders(data.results);
       // Enriquecer cada provedor com link oficial (homepage) + flag de que NÃO é link direto do título
-      const enriched = p.providers.map(name=>({name[name]||null, direct:false}));
+      const enriched = p.providers.map(name=>({name: name || null, direct:false}));
       return json(res,200,{ok:true, providers:p.providers, flatrate:p.flatrate, rent:p.rent, buy:p.buy, watchLink:p.watchLink, providersDetailed:enriched, id:q.id, type, region:"BR"});
     }
     if(action==="discover_movie"){
