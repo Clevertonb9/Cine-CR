@@ -4,6 +4,10 @@
 const TMDB = "https://api.themoviedb.org/3";
 const TOKEN = process.env.TMDB_API_TOKEN;
 const MOOD_TO_GENRES = { rir:"35", chorar:"18", tensao:"53,27,9648", maratonar:"10759,10765", acao:"28", comedia:"35", drama:"18", terror:"27", animacao:"16", ficcao:"878", romance:"10749", aventura:"12" };
+// Rótulos em português -> IDs de gênero do TMDB (o Me Indica envia o rótulo quando o filtro vem de cache/localStorage).
+const GENRE_PT = { "ação":28, "aventura":12, "animação":16, "comédia":35, "crime":80, "documentário":99, "drama":18, "família":10751, "fantasia":14, "história":36, "terror":27, "mistério":9648, "romance":10749, "ficção":878, "ficção científica":878, "suspense":53, "guerra":10752, "faroeste":37, "musical":10402, "novela":10766, "soap":10766 };
+// Época aceita: "2020" (ano), "2020s" (década) ou "classicos". Retorna [anoInicio, anoFim] ou null.
+function epocaRange(e){ if(!e) return null; const s=String(e).trim().toLowerCase(); if(s==="todas"||s==="todas as epocas"||s==="todas as épocas"||s==="todos") return null; if(/^\d{4}$/.test(s)) return [s,s]; const dec={"2020s":[2020,2029],"2010s":[2010,2019],"2000s":[2000,2009],"1990s":[1990,1999],"1980s":[1980,1989]}; if(dec[s]) return dec[s]; if(s==="classicos"||s==="clássicos"||s==="classico"||s==="clássico") return [1900,1979]; return null; }
 const PROVIDER_MAP = {"Netflix":"Netflix","Amazon Prime Video":"Prime Video","Prime Video":"Prime Video","Disney Plus":"Disney+","Disney+":"Disney+","Max":"Max","HBO Max":"Max","Apple TV+":"Apple TV+","Apple TV Plus":"Apple TV+","Globoplay":"Globoplay","Paramount Plus":"Paramount+","Star Plus":"Star+","Hulu":"Hulu","YouTube":"YouTube","Claro TV+":"Claro TV+","MUBI":"MUBI","Telecine":"Telecine"};
 function mapProviders(tmdbProviders){
   if(!tmdbProviders || !tmdbProviders.BR) return {providers:[], flatrate:[], rent:[], buy:[], watchLink:null};
@@ -127,20 +131,27 @@ export default async function handler(req,res){
     }
     if(action==="discover_tv"){
       // CORREÇÃO: repassar filtros. Para TV, certification do TMDB usa content_ratings - NÃO aplicar certification aqui (zerava tudo). Frontend filtra idade por "Não informada" quando não há dado.
-      const params = {language:lang, page:q.page||"1", sort_by:q.sort_by||"popularity.desc", "vote_count.gte":q["vote_count.gte"]||"30", include_null_first_air_dates:q.include_null_first_air_dates||"false", ...pick(q, ["with_genres","with_original_language","with_watch_providers","first_air_date.gte","first_air_date.lte","primary_release_date.gte","primary_release_date.lte","with_networks","with_status","include_adult"])};
+      const params = {language:lang, page:q.page||"1", sort_by:q.sort_by||"popularity.desc", "vote_count.gte":q["vote_count.gte"]||"30", include_null_first_air_dates:q.include_null_first_air_dates||"false", ...pick(q, ["with_genres","with_original_language","with_watch_providers","first_air_date.gte","first_air_date.lte","primary_release_date.gte","primary_release_date.lte","with_networks","with_status","with_origin_country","include_adult"])};
       const {data}=await tmdb("/discover/tv", params);
       return json(res,200,{ok:true, results:data.results||[], page:data.page, total_pages:data.total_pages, total_results:data.total_results});
     }
     if(action==="recommend"){
       const type = q.type==="tv" ? "tv" : "movie";
       const exclude = new Set((q.exclude||"").split(",").map(s=>s.trim()).filter(Boolean));
-      const genre = q.genre||""; const mood = q.mood||""; const epoca = q.epoca||"";
-      let withGenres = genre; if(!withGenres && mood) withGenres = MOOD_TO_GENRES[mood.toLowerCase()]||"";
+      const genre = q.genre||""; const mood = q.mood||q.humor||""; const epoca = q.epoca||""; const tempo = q.tempo||"";
+      // Gênero pode chegar como rótulo ("Terror") ou ID ("27"): normaliza para ID, senão o TMDB rejeita with_genres com HTTP 422.
+      let withGenres = genre;
+      if(withGenres && !/^\d/.test(String(withGenres).trim())){ const g = String(withGenres).trim().toLowerCase(); withGenres = String(GENRE_PT[g] ?? MOOD_TO_GENRES[g] ?? ""); }
+      if(!withGenres && mood) withGenres = MOOD_TO_GENRES[mood.toLowerCase()]||"";
       const paramsBase={language:lang, sort_by:"popularity.desc", "vote_count.gte":"30", include_adult:"false"};
       if(withGenres) paramsBase.with_genres=withGenres;
-      if(epoca && /^\d{4}$/.test(epoca)){
-        if(type==="movie"){ paramsBase["primary_release_date.gte"]=`${epoca}-01-01`; paramsBase["primary_release_date.lte"]=`${epoca}-12-31`; }
-        else { paramsBase["first_air_date.gte"]=`${epoca}-01-01`; paramsBase["first_air_date.lte"]=`${epoca}-12-31`; }
+      // Tempo disponível: com runtime (filmes) / duração do episódio (séries).
+      if(tempo==="curto") paramsBase["with_runtime.lte"]="120";
+      else if(tempo==="medio") paramsBase["with_runtime.lte"]="150";
+      const er = epocaRange(epoca);
+      if(er){
+        if(type==="movie"){ paramsBase["primary_release_date.gte"]=`${er[0]}-01-01`; paramsBase["primary_release_date.lte"]=`${er[1]}-12-31`; }
+        else { paramsBase["first_air_date.gte"]=`${er[0]}-01-01`; paramsBase["first_air_date.lte"]=`${er[1]}-12-31`; }
       }
       const triedPages=new Set();
       for(let attempt=0; attempt<10; attempt++){
