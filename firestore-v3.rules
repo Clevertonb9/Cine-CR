@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/data/{documentId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && documentId.matches('^(favoritos|favoritos__.*|assistidos|assistidos__.*|quero_ver|quero_ver__.*|historico|historico__.*|perfil)$');
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
