@@ -2122,7 +2122,7 @@ body{
 <body>
   <div id="root"></div>
 
-<!-- ===== CINECR • LOGIN GOOGLE + SYNC FIREBASE v3 (isolamento por UID, chunking, sync completa) ===== -->
+<!-- ===== CINECR • LOGIN GOOGLE + SYNC FIREBASE v4 (isolamento por UID, chunking, sync completa) ===== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -2204,81 +2204,60 @@ function restorePerUIDToLegacy(uid){
 function clearLegacy(){
   SYNC_KEYS.forEach(function(key){ removeLocal(key); });
 }
-/* ---------- Firestore com chunking (limite 1 MiB/doc) ---------- */
+/* ---------- Firestore com chunking versionado (limite 1 MiB/doc) ---------- */
 var CHUNK_ARRAY=400, CHUNK_OBJ=100, CHUNK_ITEMS=800;
 function chunkName(docId,field,i){ return docId+"__"+field+"_"+String(i).padStart(3,"0"); }
+function versionedChunkName(docId,generation,field,i){ return docId+"__g_"+generation+"__"+field+"_"+String(i).padStart(3,"0"); }
 function chunkArrayField(arr,size){ var out=[]; for(var i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out.length?out:[[]]; }
 function chunkObjField(obj,size){ var keys=Object.keys(obj||{}), out=[]; for(var i=0;i<keys.length;i+=size){ var part={}; keys.slice(i,i+size).forEach(function(k){ part[k]=obj[k]; }); out.push(part); } return out.length?out:[{}]; }
 var BATCH_LIMIT=450;
 async function commitBatches(firestoreObj, ops){
-  // ops: [{type:"set",ref,data},{type:"delete",ref}] — Firestore limita a 500 escritas por batch.
-  var fsObj=firestoreObj;
-  if(!fsObj || typeof fsObj.batch!=="function"){
-    for(var i=0;i<ops.length;i++){ if(ops[i].type==="delete") await ops[i].ref.delete(); else await ops[i].ref.set(ops[i].data); }
-    return;
-  }
+  if(!firestoreObj || typeof firestoreObj.batch!=="function") throw new Error("Firestore batch indisponível.");
   for(var s=0;s<ops.length;s+=BATCH_LIMIT){
-    var batch=fsObj.batch();
-    ops.slice(s,s+BATCH_LIMIT).forEach(function(op){ if(op.type==="delete") batch.delete(op.ref); else batch.set(op.ref, op.data); });
+    var batch=firestoreObj.batch();
+    ops.slice(s,s+BATCH_LIMIT).forEach(function(op){ if(op.type==="delete") batch.delete(op.ref); else batch.set(op.ref,op.data); });
     await batch.commit();
   }
 }
-async function writeChunked(base, docId, payload){
-  var prev=null; try{ var ps=await base.doc(docId).get(); if(ps.exists) prev=ps.data(); }catch(e){}
-  var writes=[];
-  function put(docName, data){ writes.push({type:"set", ref:base.doc(docName), data:data}); }
-  var index={updatedAt:Date.now(), chunks:{}};
-  var fields=Object.keys(payload||{});
-  for(var fi=0; fi<fields.length; fi++){
-    var field=fields[fi], val=payload[field];
-    if(Array.isArray(val) && val.length>CHUNK_ITEMS){
-      var ca=chunkArrayField(val, CHUNK_ARRAY);
-      index.chunks[field]=ca.length;
-      ca.forEach(function(part,i){ put(chunkName(docId,field,i), {chunk:i, field:field, items:part}); });
-    } else if(val && typeof val==="object" && !Array.isArray(val) && Object.keys(val).length>CHUNK_OBJ){
-      var co=chunkObjField(val, CHUNK_OBJ);
-      index.chunks[field]=co.length;
-      co.forEach(function(part,i){ put(chunkName(docId,field,i), {chunk:i, field:field, entries:part}); });
-    } else {
-      index[field]=val;
-    }
-  }
-  // 1) chunks primeiro; 2) indice por ultimo (leitores veem indice antigo+chunks antigos, ou indice novo+chunks novos).
-  var fsObj=(base && base.firestore) || (typeof db!=="undefined" ? db : null);
-  // Firestore compat: db.batch() existe; CollectionReference.firestore tambem.
-  var batchSrc=null;
-  try{ batchSrc=(fsObj && typeof fsObj.batch==="function") ? fsObj : ((typeof db!=="undefined" && db && typeof db.batch==="function") ? db : null); }catch(e){}
-  await commitBatches(batchSrc, writes);
-  await commitBatches(batchSrc, [{type:"set", ref:base.doc(docId), data:index}]);
-  // Apaga chunks obsoletos do indice anterior (nunca lidos pelo indice novo).
-  if(prev && prev.chunks){
-    var dels=[];
-    Object.keys(prev.chunks).forEach(function(field){
-      var oldN=prev.chunks[field]||0, newN=(index.chunks[field]||0);
-      for(var i=newN;i<oldN;i++){ dels.push({type:"delete", ref:base.doc(chunkName(docId,field,i))}); }
-    });
-    if(dels.length){ try{ await commitBatches(batchSrc, dels); }catch(e){} }
-  }
-  return index;
+async function writeChunked(base,docId,payload){
+  var fsObj=(base&&base.firestore)||(typeof db!=="undefined"?db:null);
+  if(!fsObj || typeof fsObj.runTransaction!=="function") throw new Error("Transações do Firestore indisponíveis.");
+  // Cada gravação usa IDs exclusivos. O índice só aponta para a geração depois
+  // que todos os blocos foram gravados; leitores nunca misturam gerações.
+  var generation=(function(){var a=new Uint8Array(12); if(window.crypto&&window.crypto.getRandomValues) window.crypto.getRandomValues(a); else for(var j=0;j<a.length;j++) a[j]=Math.floor(Math.random()*256); return Array.from(a).map(function(x){return x.toString(16).padStart(2,"0");}).join("");})();
+  var writes=[], index={generation:generation,chunks:{}};
+  function put(name,data){writes.push({type:"set",ref:base.doc(name),data:data});}
+  Object.keys(payload||{}).forEach(function(field){
+    var val=payload[field];
+    if(Array.isArray(val)&&val.length>CHUNK_ITEMS){
+      var parts=chunkArrayField(val,CHUNK_ARRAY); index.chunks[field]=parts.length;
+      parts.forEach(function(part,i){put(versionedChunkName(docId,generation,field,i),{generation:generation,chunk:i,field:field,items:part});});
+    }else if(val&&typeof val==="object"&&!Array.isArray(val)&&Object.keys(val).length>CHUNK_OBJ){
+      var objs=chunkObjField(val,CHUNK_OBJ); index.chunks[field]=objs.length;
+      objs.forEach(function(part,i){put(versionedChunkName(docId,generation,field,i),{generation:generation,chunk:i,field:field,entries:part});});
+    }else index[field]=val;
+  });
+  await commitBatches(fsObj,writes);
+  // Transação serializa a troca do ponteiro e incrementa revisão monotônica.
+  var indexRef=base.doc(docId), committed=null;
+  await fsObj.runTransaction(async function(tx){
+    var snap=await tx.get(indexRef), previous=snap.exists?(snap.data()||{}):{};
+    committed=Object.assign({},index,{revision:(Number(previous.revision)||0)+1,updatedAt:Date.now()});
+    tx.set(indexRef,committed);
+  });
+  return committed;
 }
-async function readChunked(base, docId){
-  var snap=await base.doc(docId).get();
-  if(!snap.exists) return null;
-  var data=snap.data()||{};
-  var chunks=data.chunks||{};
-  var chunkFields=Object.keys(chunks);
-  if(!chunkFields.length) return data;
-  var out={updatedAt:data.updatedAt||0};
-  Object.keys(data).forEach(function(k){ if(k!=="chunks"&&k!=="updatedAt") out[k]=data[k]; });
-  for(var ci=0; ci<chunkFields.length; ci++){
-    var field=chunkFields[ci], n=chunks[field], isObj=false, arr=[], obj={};
-    var snaps=await Promise.all(Array.from({length:n},function(_,i){ return base.doc(chunkName(docId,field,i)).get(); }));
-    snaps.forEach(function(cs){
-      if(!cs.exists) return;
-      var cd=cs.data()||{};
-      if(cd.entries){ isObj=true; Object.assign(obj, cd.entries); }
-      else if(cd.items){ arr=arr.concat(cd.items); }
-    });
+async function readChunked(base,docId){
+  var snap=await base.doc(docId).get(); if(!snap.exists)return null;
+  var data=snap.data()||{}, chunks=data.chunks||{}, fields=Object.keys(chunks);
+  if(!fields.length)return data;
+  var out={}; Object.keys(data).forEach(function(k){if(k!=="chunks")out[k]=data[k];});
+  for(var ci=0;ci<fields.length;ci++){
+    var field=fields[ci],n=Number(chunks[field])||0,isObj=false,arr=[],obj={};
+    var names=Array.from({length:n},function(_,i){return data.generation?versionedChunkName(docId,data.generation,field,i):chunkName(docId,field,i);});
+    var snaps=await Promise.all(names.map(function(name){return base.doc(name).get();}));
+    if(snaps.some(function(cs){return !cs.exists;})) throw new Error("Dados incompletos no Firestore: "+docId+"/"+field+". A sincronização foi interrompida para proteger seus dados.");
+    snaps.forEach(function(cs){var cd=cs.data()||{};if(cd.entries){isObj=true;Object.assign(obj,cd.entries);}else if(cd.items)arr=arr.concat(cd.items);});
     out[field]=isObj?obj:arr;
   }
   return out;
@@ -2291,7 +2270,7 @@ function getLastSync(docId){
 }
 function setLastSync(docId, payload, updatedAt){
   if(!currentUser) return;
-  suppress=true; try{ window.localStorage.setItem(LAST_SYNC_KEY(currentUser.uid,docId), JSON.stringify({payload:payload, updatedAt:updatedAt||Date.now()})); }catch(e){} suppress=false;
+  suppress=true; try{ window.localStorage.setItem(LAST_SYNC_KEY(currentUser.uid,docId), JSON.stringify({payload:payload, revision:Number(updatedAt)||0})); }catch(e){} suppress=false;
 }
 function removedKeys(lastArr, curArr, keyFn){
   var cur={}; (curArr||[]).forEach(function(x){ cur[keyFn(x)]=1; });
@@ -2352,7 +2331,7 @@ async function writeLocalToCloud(){
   var i2=await writeChunked(base, "assistidos", localToCloud("cinecr_assistidos_v1")); setLastSync("assistidos", localToCloud("cinecr_assistidos_v1"), i2.updatedAt);
   var i3=await writeChunked(base, "quero_ver", localToCloud("cinecr_quero_assistir_v1")); setLastSync("quero_ver", localToCloud("cinecr_quero_assistir_v1"), i3.updatedAt);
   var i4=await writeChunked(base, "historico", localToCloud("cinecr_hist_filmes")); setLastSync("historico", localToCloud("cinecr_hist_filmes"), i4.updatedAt);
-  await base.doc("perfil").set({displayName:currentUser.displayName||"",email:currentUser.email||"",photoURL:currentUser.photoURL||"",updatedAt:Date.now()});
+  await base.doc("perfil").set({displayName:currentUser.displayName||"",email:currentUser.email||"",photoURL:currentUser.photoURL||"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
 }
 function broadcastSync(){
   var msg={uid:currentUser?currentUser.uid:null, ts:Date.now(), source:TAB_ID};
@@ -2370,8 +2349,8 @@ async function saveAllToCloud(){
     var hasNewer=false;
     ["favoritos","assistidos","quero_ver","historico"].forEach(function(docId){
       var last=getLastSync(docId);
-      var cloudAt=cloud[docId]?cloud[docId].updatedAt||0:0;
-      if(last && cloudAt>(last.updatedAt||0)) hasNewer=true;
+      var cloudAt=cloud[docId]?cloud[docId].revision||0:0;
+      if(last && cloudAt>(last.revision||0)) hasNewer=true;
       if(!last && cloud[docId]) hasNewer=true;
     });
     if(hasNewer) mergeCloudIntoLocal(cloud);
@@ -2404,10 +2383,10 @@ async function migrateAndSync(){
       if(!ok) return false;
     } else {
       // Nuvem e local ja iguais: registra o sync para o merge-before-write futuro.
-      setLastSync("favoritos", localToCloud("cinecr_favoritos"), (cloud.favoritos||{}).updatedAt||0);
-      setLastSync("assistidos", localToCloud("cinecr_assistidos_v1"), (cloud.assistidos||{}).updatedAt||0);
-      setLastSync("quero_ver", localToCloud("cinecr_quero_assistir_v1"), (cloud.quero_ver||{}).updatedAt||0);
-      setLastSync("historico", localToCloud("cinecr_hist_filmes"), (cloud.historico||{}).updatedAt||0);
+      setLastSync("favoritos", localToCloud("cinecr_favoritos"), (cloud.favoritos||{}).revision||0);
+      setLastSync("assistidos", localToCloud("cinecr_assistidos_v1"), (cloud.assistidos||{}).revision||0);
+      setLastSync("quero_ver", localToCloud("cinecr_quero_assistir_v1"), (cloud.quero_ver||{}).revision||0);
+      setLastSync("historico", localToCloud("cinecr_hist_filmes"), (cloud.historico||{}).revision||0);
     }
     suppress=true; try{ window.localStorage.setItem(MIGRATION_KEY(currentUser.uid), "done"); }catch(e){} suppress=false;
     window.__cinecrLastMergeChanged=changed;
@@ -2417,7 +2396,7 @@ async function migrateAndSync(){
 }
 /* ---------- Firebase ---------- */
 var firebaseConfig={
-  apiKey:"AIzaSyCnQDHDa5rZQXb0jmiSlYaxpwRW7hMuprQ",
+  apiKey:"COLE_AQUI_A_APIKEY_WEB_DO_FIREBASE_CONSOLE",
   authDomain:"cine-cr.firebaseapp.com",
   projectId:"cine-cr",
   storageBucket:"cine-cr.firebasestorage.app",
@@ -2465,6 +2444,7 @@ async function handleAuth(user){
   }
   window.sessionStorage.setItem(flagKey,"1");
   showApp(user);
+  startCloudListener();
 }
 function handleRemoteSync(msg){
   if(!msg || !currentUser || msg.uid!==currentUser.uid || msg.source===TAB_ID) return;
@@ -2478,13 +2458,39 @@ function handleRemoteSync(msg){
     }catch(e){}
   })();
 }
+var unsubscribeCloud=null, remoteApplying=false;
+function startCloudListener(){
+  if(unsubscribeCloud){try{unsubscribeCloud();}catch(e){} unsubscribeCloud=null;}
+  if(!currentUser||!db)return;
+  var base=db.collection("users").doc(currentUser.uid).collection("data");
+  var ids=["favoritos","assistidos","quero_ver","historico"], snapshots={}, ready={};
+  var stops=[];
+  function applySnapshot(){
+    if(ids.some(function(id){return !ready[id];})||remoteApplying||!currentUser)return;
+    remoteApplying=true;
+    (async function(){
+      try{var cloud={};
+        for(var j=0;j<ids.length;j++){var k=ids[j];if(snapshots[k])cloud[k]=await readChunked(base,k);}
+        var changed=mergeCloudIntoLocal(cloud);
+        if(changed){window.dispatchEvent(new Event("cinecr-watched-changed"));}
+        ids.forEach(function(k){var c=cloud[k];if(c){var lk=k==="favoritos"?"cinecr_favoritos":k==="assistidos"?"cinecr_assistidos_v1":k==="quero_ver"?"cinecr_quero_assistir_v1":"cinecr_hist_filmes";setLastSync(k,localToCloud(lk),c.revision||0);}});
+      }catch(e){setDot("#ef4444");}
+      finally{remoteApplying=false;}
+    })();
+  }
+  ids.forEach(function(id){
+    var stop=base.doc(id).onSnapshot(function(snap){snapshots[id]=snap.exists?(snap.data()||{}):null;ready[id]=true;applySnapshot();},function(){setDot("#ef4444");});
+    stops.push(stop);
+  });
+  unsubscribeCloud=function(){stops.forEach(function(stop){try{stop();}catch(e){}});};
+}
 try{
   if(typeof BroadcastChannel!=="undefined"){ var _ch=new BroadcastChannel("cinecr-sync"); _ch.onmessage=function(ev){ handleRemoteSync(ev.data); }; }
 }catch(e){}
 if(!window.firebase || !window.firebase.initializeApp){ setStatus("Não foi possível carregar o Firebase. Verifique sua conexão e recarregue."); setError("SDK do Firebase indisponível."); }
 else if(!firebaseConfig.apiKey || firebaseConfig.apiKey.indexOf("COLE_AQUI")===0){
   setStatus("Login ainda não configurado.");
-  setError("ATENÇÃO — Nenhum valor de apiKey foi encontrado nesta conversa: a configuração recebida continha projectId, authDomain, storageBucket, messagingSenderId e appId, mas nenhum valor de apiKey. Não inventei uma chave. Cole a apiKey Web real do Firebase Console em firebaseConfig.apiKey. Nenhum dado foi apagado.");
+  setError("A configuração Web do Firebase ainda está sem a API Key. Insira a chave Web do projeto Cine-CR em firebaseConfig.apiKey antes de habilitar o login. Não use credenciais administrativas. Nenhum dado foi apagado.");
   BTN.style.display="none";
 } else {
   try{
@@ -2516,6 +2522,7 @@ ACCT.addEventListener("click", async function(){
   try{ if(uid){ stashCurrentToPerUID(uid); clearLegacy(); } }catch(e){}
   try{ window.localStorage.removeItem(ACCOUNT_KEY); }catch(e){}
   currentUser=null;
+  try{ if(unsubscribeCloud) unsubscribeCloud(); }catch(e){}
   try{ if(auth) await auth.signOut(); }catch(e){}
   try{ window.sessionStorage.clear(); }catch(e){}
   window.location.reload();

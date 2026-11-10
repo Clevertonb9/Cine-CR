@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function allowedDataDocument(documentId) {
+      return documentId.matches('^(favoritos|assistidos|quero_ver|historico|perfil)$')
+        // Formato legado da V3, mantido para leitura dos dados já existentes.
+        || documentId.matches('^(favoritos|assistidos|quero_ver|historico)__[A-Za-z0-9_-]+_[0-9]{3}$')
+        // Blocos versionados da V4: <doc>__g_<geração>__<campo>_<índice>.
+        || documentId.matches('^(favoritos__g_[a-f0-9]{24}__items_[0-9]{3})$')
+        || documentId.matches('^(assistidos__g_[a-f0-9]{24}__(movies|episodes|movieMeta|seriesMeta)_[0-9]{3})$')
+        || documentId.matches('^(quero_ver__g_[a-f0-9]{24}__items_[0-9]{3})$')
+        || documentId.matches('^(historico__g_[a-f0-9]{24}__(filmes|series)_[0-9]{3})$');
+    }
+
+    match /users/{userId}/data/{documentId} {
+      allow read, write: if signedInAs(userId) && allowedDataDocument(documentId);
+    }
+
+    // Bloqueia qualquer outro documento/caminho não autorizado acima.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
