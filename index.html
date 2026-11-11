@@ -2141,7 +2141,11 @@ body{
 (function(){
   function applyCineCRLogo(){
     var logo=document.getElementById("cinecr-login-logo");
-    if(logo && window.__CINECR_LOGO) logo.src=window.__CINECR_LOGO;
+    if(!logo) return;
+    /* Mantém a marca visível mesmo quando a URL externa da logo não foi carregada. */
+    var fallback="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 320'%3E%3Crect width='320' height='320' rx='52' fill='%23090909'/%3E%3Cpath d='M48 92h224v136H48z' fill='%23141414' stroke='%23E50914' stroke-width='8' rx='22'/%3E%3Ctext x='160' y='180' text-anchor='middle' font-family='Arial,sans-serif' font-size='76' font-weight='900' fill='white'%3ECINE-%3Ctspan fill='%23E50914'%3ECR%3C/tspan%3E%3C/text%3E%3C/svg%3E";
+    logo.onerror=function(){ this.onerror=null; this.src=fallback; };
+    logo.src=window.__CINECR_LOGO || fallback;
   }
   if(document.readyState==="complete") applyCineCRLogo();
   else window.addEventListener("load",applyCineCRLogo,{once:true});
@@ -2470,14 +2474,25 @@ async function handleAuth(user){
   var didMerge=false, ok=false;
   try{ ok=await migrateAndSync(); didMerge=!!window.__cinecrLastMergeChanged; }catch(e){ ok=false; }
   if(!ok){
-    // NAO libera a interface com dados possivelmente desatualizados.
-    mergeFailed=true; syncEnabled=false;
-    GATE.style.display="flex"; ACCT.style.display="none";
-    setStatus("Não foi possível sincronizar seus dados. Verifique a conexão.");
-    setError("Seus dados locais não foram apagados. Toque em Tentar novamente.");
-    BTN.textContent="Tentar novamente"; BTN.style.display="block";
+    /* Falha de nuvem não deve bloquear a tela principal nem ocultar os dados locais. */
+    mergeFailed=true; syncEnabled=false; pendingSave=true;
+    showApp(user);
+    setDot("#ef4444");
+    setStatus("Sincronização pendente. Seus dados locais continuam disponíveis.");
+    setError("A sincronização não foi concluída. O aplicativo continuará aberto e tentará novamente quando a conexão estiver disponível.");
+    var warning=document.getElementById("cinecr-sync-warning");
+    if(!warning){
+      warning=document.createElement("div");
+      warning.id="cinecr-sync-warning";
+      warning.style.cssText="position:fixed;left:12px;right:12px;top:12px;z-index:9999;max-width:560px;margin:auto;padding:12px 14px;border:1px solid #7f1d1d;border-radius:14px;background:#260d0f;color:#fff;font:13px system-ui;box-shadow:0 8px 28px #0009;display:flex;align-items:center;gap:10px";
+      warning.innerHTML='<span style="flex:1">Não foi possível sincronizar agora. Seus dados deste aparelho foram preservados.</span><button type="button" id="cinecr-sync-retry" style="background:#E50914;color:#fff;border:0;border-radius:999px;padding:9px 12px;font-weight:800">Tentar</button><button type="button" id="cinecr-sync-dismiss" aria-label="Fechar aviso" style="background:transparent;color:#fff;border:0;font-size:20px">×</button>';
+      document.body.appendChild(warning);
+      document.getElementById("cinecr-sync-retry").addEventListener("click",function(){ if(auth&&auth.currentUser){ warning.style.display="none"; handleAuth(auth.currentUser); } });
+      document.getElementById("cinecr-sync-dismiss").addEventListener("click",function(){ warning.style.display="none"; });
+    }else warning.style.display="flex";
     return;
   }
+  var warning=document.getElementById("cinecr-sync-warning"); if(warning) warning.remove();
   // Troca de conta: o React ainda tem o estado da conta anterior em memoria.
   // Recarrega SEMPRE apos a troca, mesmo que a mescla nao tenha mudado nada.
   if(uidChanged || (didMerge && !window.sessionStorage.getItem(flagKey))){
@@ -2553,7 +2568,7 @@ else if(!firebaseConfig.apiKey || firebaseConfig.apiKey.indexOf("COLE_AQUI")===0
     });
     auth.getRedirectResult().catch(function(){});
     auth.onAuthStateChanged(function(user){ handleAuth(user); });
-    window.addEventListener("online", function(){ if(pendingSave && currentUser) scheduleSave(); });
+    window.addEventListener("online", function(){ if(pendingSave && currentUser) handleAuth(currentUser); });
     window.addEventListener("storage", function(ev){ if(ev && ev.key==="cinecr_sync_broadcast" && ev.newValue){ try{ handleRemoteSync(JSON.parse(ev.newValue)); }catch(e){} } });
   }catch(e){ setStatus("Falha ao iniciar o Firebase."); setError(String(e&&e.message?e.message:e)); }
 }
