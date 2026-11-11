@@ -3102,32 +3102,69 @@ const CINE_AVATAR_NAMES={"Heróis":["Sentinela Solar","Sombra Rubra","Vórtice",
 "Criaturas":["Raposa Celeste","Gato Astral","Coruja Mística","Lobo Boreal","Dragão de Jade","Coelho Lunar","Urso Vulcânico","Cervo Encantado","Corvo de Prata","Leão Solar","Tigre Nebuloso","Falcão Azul","Axolote Mágico","Pantera Espectral","Serpente Dourada"]};
 function cineAvatarList(category){
  const themes={
-  "Heróis":{bg:["#10264a","#172f59","#26345d"],a:"#ef4444",b:"#38bdf8",prop:'<path d="M112 26 L139 39 L132 70 Q126 87 112 94 Q98 87 92 70 L85 39 Z" fill="#facc15" stroke="#fff" stroke-width="3"/><path d="M112 39 V79" stroke="#fff" stroke-width="4"/>',gear:'<path d="M42 69 L22 95 L39 105 L53 83 M118 69 L138 95 L121 105 L107 83" fill="#e8b4a0" stroke="#fff" stroke-width="3"/>'},
-  "Fantasia":{bg:["#35204f","#493064","#253b54"],a:"#9b7bea",b:"#e7c36a",prop:'<path d="M119 18 L123 34 L139 40 L123 46 L119 63 L113 46 L97 40 L113 34 Z" fill="#fff1a8"/><path d="M96 82 L139 28" stroke="#e9d5ff" stroke-width="5" stroke-linecap="round"/>',gear:'<path d="M39 65 Q19 36 35 20 Q49 33 51 62 M121 65 Q141 36 125 20 Q111 33 109 62" fill="#b9a2f5" stroke="#fff" stroke-width="3"/>'},
-  "Espacial":{bg:["#0c2742","#1b365c","#252b54"],a:"#38bdf8",b:"#94a3b8",prop:'<circle cx="119" cy="38" r="18" fill="#38bdf8" stroke="#fff" stroke-width="3"/><ellipse cx="119" cy="38" rx="31" ry="10" fill="none" stroke="#f8d477" stroke-width="5" transform="rotate(-22 119 38)"/>',gear:'<path d="M37 45 Q30 18 55 13 H105 Q130 18 123 45 L114 58 H46 Z" fill="#c9e8f5" stroke="#fff" stroke-width="3"/><rect x="48" y="30" width="64" height="22" rx="10" fill="#183b5c"/>'},
-  "Anime":{bg:["#492538","#642c3c","#3d315e"],a:"#f97316",b:"#ec4899",prop:'<path d="M118 13 L124 34 L145 40 L124 46 L118 67 L112 46 L91 40 L112 34 Z" fill="#ffe27a" stroke="#fff" stroke-width="2"/>',gear:'<path d="M31 56 Q23 14 62 12 Q93 1 127 27 L119 59 L104 38 L91 50 L78 31 L61 52 L47 39 Z" fill="#24213b" stroke="#fff" stroke-width="2"/>'},
-  "Monstros":{bg:["#173c35","#294b3a","#3e3152"],a:"#84cc16",b:"#a855f7",prop:'<path d="M113 20 Q91 0 96 43 Q101 57 113 61 Q125 57 130 43 Q135 0 113 20 Z" fill="#9bd45b" stroke="#fff" stroke-width="3"/>',gear:'<path d="M42 56 Q15 27 29 10 Q48 15 54 47 M118 56 Q145 27 131 10 Q112 15 106 47" fill="#a8d86a" stroke="#fff" stroke-width="3"/>'},
-  "Aventura":{bg:["#4b3522","#5c482c","#34443b"],a:"#d69b45",b:"#3c9b83",prop:'<circle cx="119" cy="39" r="21" fill="#d6a64e" stroke="#fff" stroke-width="3"/><path d="M128 20 L119 43 L104 56 L112 32 Z" fill="#fff1c4"/>',gear:'<path d="M35 45 Q39 13 80 13 Q121 13 125 45 L115 58 H45 Z" fill="#b87938" stroke="#f5deb3" stroke-width="3"/><path d="M30 46 H130" stroke="#f5deb3" stroke-width="6"/>'},
-  "Futuristas":{bg:["#103b49","#14505c","#25334f"],a:"#22d3ee",b:"#8b5cf6",prop:'<path d="M99 28 H133 V62 H99 Z" fill="#102a3b" stroke="#67f3ff" stroke-width="3"/><path d="M105 37 H127 M105 46 H127 M105 55 H119" stroke="#67f3ff" stroke-width="3"/><circle cx="132" cy="25" r="6" fill="#fff"/>',gear:'<path d="M32 48 Q31 15 80 15 Q129 15 128 48 L117 60 H43 Z" fill="#193f55" stroke="#67e8f9" stroke-width="3"/><path d="M43 39 H117" stroke="#67e8f9" stroke-width="7"/>'},
-  "Criaturas":{bg:["#293d55","#344b63","#44375c"],a:"#a78bfa",b:"#60a5fa",prop:'<path d="M119 17 Q95 2 98 39 Q104 55 119 61 Q134 55 140 39 Q143 2 119 17 Z" fill="#c4b5fd" stroke="#fff" stroke-width="3"/>',gear:'<path d="M43 52 Q17 9 43 12 Q59 16 61 49 M117 49 Q119 16 135 12 Q161 9 135 52" fill="#b8a6ec" stroke="#fff" stroke-width="3"/>'}
+  "Heróis":{bg:["#172554","#312e81","#7f1d1d"],primary:["#ef4444","#2563eb","#f59e0b","#16a34a"],secondary:["#facc15","#67e8f9","#f9a8d4"],badge:"✦",costume:"hero"},
+  "Fantasia":{bg:["#3b1d5a","#56316d","#173d54"],primary:["#a78bfa","#db8bca","#e0b45c","#55b7a7"],secondary:["#f5d0fe","#fde68a","#bae6fd"],badge:"✧",costume:"magic"},
+  "Espacial":{bg:["#102a43","#183c63","#312e81"],primary:["#38bdf8","#94a3b8","#c084fc","#34d399"],secondary:["#f0abfc","#a5f3fc","#fde68a"],badge:"✦",costume:"space"},
+  "Anime":{bg:["#4c1d3d","#6b214b","#312e81"],primary:["#fb7185","#f97316","#a78bfa","#38bdf8"],secondary:["#fde68a","#fbcfe8","#c4b5fd"],badge:"✧",costume:"anime"},
+  "Monstros":{bg:["#164e3b","#365314","#3f315e"],primary:["#84cc16","#22c55e","#a855f7","#fb923c"],secondary:["#d9f99d","#f0abfc","#fed7aa"],badge:"☻",costume:"monster"},
+  "Aventura":{bg:["#5b3a21","#3f4d2b","#31545a"],primary:["#d69b45","#2c9b83","#d97706","#65a30d"],secondary:["#fde68a","#bae6fd","#fed7aa"],badge:"★",costume:"adventure"},
+  "Futuristas":{bg:["#164e63","#155e75","#312e81"],primary:["#22d3ee","#818cf8","#a3e635","#f472b6"],secondary:["#a5f3fc","#ddd6fe","#d9f99d"],badge:"⌁",costume:"future"},
+  "Criaturas":{bg:["#334155","#43316a","#164e63"],primary:["#a78bfa","#60a5fa","#2dd4bf","#fb7185"],secondary:["#ddd6fe","#bae6fd","#99f6e4"],badge:"❋",costume:"creature"}
  };
  const t=themes[category]||themes["Heróis"];
- const skins=["#f3c6a5","#d99a72","#a86e54","#f0d2b8","#bd846b","#e7b28b","#8d5c48","#f4d7bd"];
- const hairs=["#211a2a","#42271d","#171b2a","#9b5a32","#d6b36c","#6c3b78","#d9dce5","#302d42"];
  const names=CINE_AVATAR_NAMES[category]||[];
+ const skins=["#ffdfc4","#f4c7a1","#d99b78","#a96f55","#f0d1b8","#bd8065","#8d5948","#e9b58f","#f8d9bd"];
+ const hairs=["#241b2f","#4a2a20","#171c31","#a65e36","#e6bd69","#6f3b86","#d8e2ee","#32263e","#b94f49","#263f38"];
+ const hairShapes=[
+  '<path d="M38 72 Q22 18 77 14 Q131 10 122 72 L111 54 Q99 36 80 42 Q58 29 47 57Z"/>',
+  '<path d="M38 70 Q28 22 67 15 Q108 3 124 45 L115 61 Q99 36 83 31 Q61 52 42 50Z"/><path d="M42 53 Q28 85 39 111 L52 105 L54 65Z"/>',
+  '<path d="M36 67 Q23 20 66 12 Q113 1 126 49 L117 62 Q104 42 91 45 L80 28 Q63 51 42 52Z"/><path d="M110 44 Q136 72 117 101 L106 91Z"/>',
+  '<path d="M35 69 Q26 18 76 13 Q126 8 125 63 L112 53 Q97 35 80 43 Q60 34 46 57Z"/><path d="M48 24 Q32 5 50 4 Q64 5 67 19 M91 19 Q103 -1 117 9 Q124 18 110 27Z"/>',
+  '<path d="M38 72 Q24 22 70 13 Q116 3 124 54 L114 66 Q99 46 84 42 Q59 60 44 52Z"/><path d="M43 57 Q17 83 39 108 L51 99Z M112 54 Q143 79 119 108 L108 99Z"/>'
+ ];
+ const expressions=[
+  '<ellipse cx="64" cy="64" rx="7" ry="10" fill="#fff"/><ellipse cx="96" cy="64" rx="7" ry="10" fill="#fff"/><circle cx="66" cy="66" r="4.5" fill="#27334b"/><circle cx="98" cy="66" r="4.5" fill="#27334b"/><circle cx="67" cy="62" r="2" fill="#fff"/><circle cx="99" cy="62" r="2" fill="#fff"/>',
+  '<path d="M56 62 Q64 53 72 62 M88 62 Q96 53 104 62" fill="none" stroke="#35263a" stroke-width="4" stroke-linecap="round"/><ellipse cx="64" cy="67" rx="5" ry="7" fill="#fff"/><ellipse cx="96" cy="67" rx="5" ry="7" fill="#fff"/><circle cx="65" cy="68" r="3.5" fill="#26334b"/><circle cx="97" cy="68" r="3.5" fill="#26334b"/>',
+  '<ellipse cx="64" cy="66" rx="8" ry="9" fill="#fff"/><ellipse cx="96" cy="66" rx="8" ry="9" fill="#fff"/><ellipse cx="66" cy="67" rx="4" ry="6" fill="#513a64"/><ellipse cx="98" cy="67" rx="4" ry="6" fill="#513a64"/><circle cx="67" cy="63" r="2" fill="#fff"/><circle cx="99" cy="63" r="2" fill="#fff"/>'
+ ];
  return names.map((name,i)=>{
-  const bg=t.bg[i%t.bg.length],skin=skins[(i*3)%skins.length],hair=hairs[(i*5)%hairs.length];
-  const female=i%2===1, longHair=i%4===1, mask=i%5===2, beard=!female&&i%5===4;
-  const outfit=i%3===0?t.a:t.b, eye=i%3===0?"#24324a":"#172033";
-  const hairShape=longHair
-   ? '<path d="M38 67 Q20 23 52 16 Q92 2 122 34 L119 104 Q105 93 105 66 L96 48 Q75 61 55 47 L48 76 Z" fill="'+hair+'" stroke="#171923" stroke-width="2"/>'
-   : '<path d="M39 57 Q24 15 65 13 Q110 6 121 43 L111 61 L103 43 Q83 51 67 35 Q55 51 42 48 Z" fill="'+hair+'" stroke="#171923" stroke-width="2"/>';
-  const faceMark=mask
-   ? '<path d="M47 48 Q80 62 113 48 L108 67 Q80 82 52 67 Z" fill="'+t.a+'" stroke="#fff" stroke-width="2"/><path d="M62 58 H72 M88 58 H98" stroke="#fff" stroke-width="3"/>'
-   : '<path d="M60 54 Q65 50 70 54 M90 54 Q95 50 100 54" fill="none" stroke="'+eye+'" stroke-width="3" stroke-linecap="round"/><path d="M73 73 Q80 78 87 73" fill="none" stroke="#914e48" stroke-width="2.5" stroke-linecap="round"/>';
-  const beardMark=beard?'<path d="M58 69 Q80 103 102 69 L96 91 Q80 105 64 91 Z" fill="'+hair+'"/>':"";
-  const accessory=i%3===0?'<circle cx="45" cy="79" r="8" fill="#f6d365" stroke="#fff" stroke-width="2"/>':i%3===1?'<path d="M42 82 L27 95 M118 82 L133 95" stroke="#fff" stroke-width="5" stroke-linecap="round"/>':'<path d="M49 88 H111" stroke="#fff" stroke-opacity=".7" stroke-width="3"/>';
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 180"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+bg+'"/><stop offset="1" stop-color="#080f1e"/></linearGradient><linearGradient id="suit" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+outfit+'"/><stop offset="1" stop-color="'+t.a+'"/></linearGradient></defs><rect width="160" height="180" rx="22" fill="url(#bg)"/><circle cx="80" cy="82" r="68" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="2"/><circle cx="80" cy="82" r="57" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="1"/>'+t.prop+t.gear+'<path d="M18 180 Q21 116 80 112 Q139 116 142 180 Z" fill="url(#suit)" stroke="#fff" stroke-opacity=".55" stroke-width="3"/><path d="M49 125 L80 151 L111 125 L123 180 H37 Z" fill="'+t.a+'" opacity=".92"/><path d="M69 107 H91 V132 Q80 143 69 132 Z" fill="'+skin+'"/><ellipse cx="80" cy="69" rx="39" ry="46" fill="'+skin+'" stroke="#5d3b38" stroke-opacity=".4" stroke-width="2"/>'+hairShape+faceMark+beardMark+'<path d="M49 83 Q80 94 111 83" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>'+accessory+'<path d="M22 166 Q80 148 138 166" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2"/></svg>';
+  const bg=t.bg[i%t.bg.length],skin=skins[(i*2+Math.floor(i/3))%skins.length],hair=hairs[(i*3+Math.floor(i/2))%hairs.length];
+  const outfit=t.primary[i%t.primary.length],accent=t.secondary[(i*2)%t.secondary.length];
+  const shape=i%5,expr=i%3, creature=category==="Monstros"||category==="Criaturas";
+  const ear=(category==="Monstros"||category==="Criaturas")
+   ? (i%3===0?'<path d="M48 49 L27 19 Q52 22 59 43 M112 49 L133 19 Q108 22 101 43" fill="'+outfit+'" stroke="#29233a" stroke-width="4" stroke-linejoin="round"/>'
+   : i%3===1?'<circle cx="43" cy="77" r="13" fill="'+skin+'" stroke="#29233a" stroke-width="3"/><circle cx="117" cy="77" r="13" fill="'+skin+'" stroke="#29233a" stroke-width="3"/>'
+   : '<path d="M50 49 Q27 32 32 11 Q55 15 62 43 M110 49 Q133 32 128 11 Q105 15 98 43" fill="'+accent+'" stroke="#29233a" stroke-width="4"/>')
+   : '<path d="M43 73 Q27 67 31 83 Q34 95 48 91 M117 73 Q133 67 129 83 Q126 95 112 91" fill="'+skin+'" stroke="#352b3d" stroke-width="3"/>';
+  const head=creature&&i%4===0
+   ? '<path d="M80 27 Q121 27 120 70 Q119 113 80 115 Q41 113 40 70 Q39 27 80 27Z"'
+   : '<path d="'+(shape===0?'M80 25 Q119 25 119 69 Q119 111 80 112 Q41 111 41 69 Q41 25 80 25Z':shape===1?'M80 25 Q116 25 121 65 Q124 108 80 114 Q36 108 39 65 Q44 25 80 25Z':'M80 23 Q124 23 119 73 Q115 111 80 112 Q45 111 41 73 Q36 23 80 23Z')+'"';
+  const mouth=i%4===0?'<path d="M70 85 Q80 98 90 85" fill="none" stroke="#a34f61" stroke-width="3.5" stroke-linecap="round"/>':i%4===1?'<path d="M70 85 Q80 91 90 85" fill="none" stroke="#a34f61" stroke-width="3" stroke-linecap="round"/>':'<ellipse cx="80" cy="87" rx="5" ry="4" fill="#a34f61"/>';
+  const blush='<ellipse cx="54" cy="79" rx="9" ry="4" fill="#f78da7" opacity=".48"/><ellipse cx="106" cy="79" rx="9" ry="4" fill="#f78da7" opacity=".48"/>';
+  let costume='';
+  if(category==="Heróis") costume='<path d="M42 123 L22 167 L47 176 L64 136 M118 123 L138 167 L113 176 L96 136" fill="'+accent+'" stroke="#34283f" stroke-width="4"/><path d="M80 132 L91 148 L80 164 L69 148Z" fill="'+accent+'" stroke="#fff" stroke-width="2"/>';
+  else if(category==="Fantasia") costume='<path d="M42 122 Q80 150 118 122 L138 180 H22Z" fill="'+outfit+'" stroke="#34283f" stroke-width="4"/><path d="M80 136 L87 151 L80 166 L73 151Z" fill="'+accent+'"/><circle cx="80" cy="151" r="5" fill="#fff4b8"/>';
+  else if(category==="Espacial") costume='<path d="M40 125 Q80 108 120 125 L135 180 H25Z" fill="#dbeafe" stroke="#253b58" stroke-width="4"/><path d="M48 137 H112 L105 169 H55Z" fill="'+outfit+'"/><circle cx="80" cy="151" r="10" fill="'+accent+'" stroke="#fff" stroke-width="3"/>';
+  else if(category==="Anime") costume='<path d="M42 124 L80 145 L118 124 L133 180 H27Z" fill="'+outfit+'" stroke="#34283f" stroke-width="4"/><path d="M80 144 L93 161 L80 177 L67 161Z" fill="'+accent+'"/>';
+  else if(category==="Monstros"||category==="Criaturas") costume='<path d="M42 123 Q80 141 118 123 L137 180 H23Z" fill="'+outfit+'" stroke="#34283f" stroke-width="4"/><circle cx="56" cy="151" r="7" fill="'+accent+'"/><circle cx="104" cy="151" r="7" fill="'+accent+'"/>';
+  else if(category==="Aventura") costume='<path d="M42 123 L80 145 L118 123 L136 180 H24Z" fill="#b7793e" stroke="#34283f" stroke-width="4"/><path d="M55 137 L105 137 L96 180 H64Z" fill="'+accent+'"/><path d="M48 132 L112 132" stroke="#f5deb3" stroke-width="5"/>';
+  else costume='<path d="M42 123 L80 144 L118 123 L136 180 H24Z" fill="#20384f" stroke="#34283f" stroke-width="4"/><path d="M48 145 H112 V166 H48Z" fill="'+outfit+'" stroke="'+accent+'" stroke-width="3"/><circle cx="80" cy="155" r="7" fill="'+accent+'"/>';
+  const headgear=category==="Espacial"
+   ? '<path d="M35 63 Q33 16 80 16 Q127 16 125 63" fill="none" stroke="#d9f6ff" stroke-width="7"/><path d="M40 60 Q80 42 120 60" fill="none" stroke="#7dd3fc" stroke-width="5"/>'
+   : category==="Futuristas"
+   ? '<path d="M40 51 Q80 19 120 51 L113 64 Q80 43 47 64Z" fill="#102a3d" stroke="#67e8f9" stroke-width="3"/><path d="M51 54 H109" stroke="#a5f3fc" stroke-width="4"/>'
+   : category==="Aventura"
+   ? '<path d="M32 49 Q80 12 128 49 L120 59 H40Z" fill="#b7793e" stroke="#34283f" stroke-width="4"/><path d="M25 57 Q80 46 135 57" stroke="#f1d09a" stroke-width="7" stroke-linecap="round"/>'
+   : category==="Fantasia"
+   ? '<path d="M48 41 L58 10 L77 31 L98 5 L111 43Z" fill="'+accent+'" stroke="#34283f" stroke-width="3"/>'
+   : category==="Anime"&&i%2===0
+   ? '<path d="M39 51 L49 18 L68 37 L87 8 L103 35 L122 18 L119 58Z" fill="'+hair+'" stroke="#34283f" stroke-width="3"/>'
+   : '';
+  const creatureEyes=(category==="Monstros"||category==="Criaturas")&&i%4===2
+   ? '<ellipse cx="62" cy="66" rx="10" ry="12" fill="#fff"/><ellipse cx="98" cy="66" rx="10" ry="12" fill="#fff"/><circle cx="64" cy="68" r="5" fill="#172033"/><circle cx="100" cy="68" r="5" fill="#172033"/><circle cx="65" cy="63" r="2.5" fill="#fff"/><circle cx="101" cy="63" r="2.5" fill="#fff"/>'
+   : expressions[expr];
+  const extras=i%4===0?'<circle cx="130" cy="33" r="7" fill="'+accent+'"/><path d="M130 21 V13 M142 33 H150" stroke="#fff" stroke-width="2" stroke-linecap="round"/>':i%4===1?'<path d="M26 105 Q14 92 23 82" fill="none" stroke="'+accent+'" stroke-width="5" stroke-linecap="round"/>':i%4===2?'<path d="M128 105 Q146 92 137 82" fill="none" stroke="'+accent+'" stroke-width="5" stroke-linecap="round"/>':'<path d="M23 35 L28 27 L33 35 L41 40 L33 45 L28 53 L23 45 L15 40Z" fill="'+accent+'"/>';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 190"><defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+bg+'"/><stop offset="1" stop-color="#15172c"/></linearGradient><linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+outfit+'"/><stop offset="1" stop-color="'+accent+'"/></linearGradient></defs><rect width="160" height="190" rx="24" fill="url(#b)"/><circle cx="80" cy="80" r="66" fill="none" stroke="#fff" stroke-opacity=".15" stroke-width="2"/>'+extras+'<path d="M18 190 Q20 126 80 119 Q140 126 142 190Z" fill="url(#shirt)" stroke="#34283f" stroke-width="4"/>'+costume+'<path d="M67 104 H93 V132 Q80 143 67 132Z" fill="'+skin+'" stroke="#352b3d" stroke-width="3"/>'+ear+head+' fill="'+skin+'" stroke="#352b3d" stroke-width="4" stroke-linejoin="round"/>'+hairShapes[(i+Math.floor(i/5))%hairShapes.length]+' fill="'+hair+'" stroke="#34283f" stroke-width="3" stroke-linejoin="round"/>'+headgear+creatureEyes+blush+mouth+'<path d="M74 75 Q80 79 86 75" fill="none" stroke="#b87972" stroke-width="2" stroke-linecap="round"/><path d="M29 181 Q80 165 131 181" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3"/><circle cx="80" cy="177" r="3" fill="'+accent+'"/></svg>';
   return {name,url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg)};
  });
 }
