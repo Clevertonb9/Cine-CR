@@ -116,16 +116,20 @@ export default async function handler(req,res){
     if(action==="personalized_catalog"){
       const rawGenres=String(q.genres||"").split(",").map(x=>x.trim()).filter(x=>/^\\d+$/.test(x));
       const genres=[...new Set(rawGenres)].slice(0,6);
+      const ratedIds=String(q.rated||"").split(",").map(x=>x.trim()).filter(x=>/^\\d+$/.test(x)).slice(0,8);
+      const ratedGenreIds=new Set();
+      await Promise.all(ratedIds.map(async id=>{try{const {data}=await tmdb("/movie/"+id,{language:lang});(data.genres||[]).forEach(g=>{if(g&&g.id)ratedGenreIds.add(String(g.id))})}catch{}}));
+      const allGenres=[...new Set([...genres,...ratedGenreIds])].slice(0,10);
       const pages=new Set();
       while(pages.size<6) pages.add(1+Math.floor(Math.random()*500));
       const resultsMap=new Map();
       await Promise.all([...pages].map(async page=>{
         const params={language:lang,page:String(page),sort_by:"popularity.desc","vote_count.gte":"30",include_adult:"false"};
-        if(genres.length) params.with_genres=genres.join("|");
+        if(allGenres.length) params.with_genres=allGenres.join("|");
         const {data}=await tmdb("/discover/movie",params);
         (data.results||[]).forEach(item=>{if(item&&item.id)resultsMap.set(String(item.id),item)});
       }));
-      return json(res,200,{ok:true,results:[...resultsMap.values()],pagesChecked:[...pages],personalizedBy:genres});
+      return json(res,200,{ok:true,results:[...resultsMap.values()],pagesChecked:[...pages],personalizedBy:allGenres});
     }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
