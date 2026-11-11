@@ -142,7 +142,7 @@ export default async function handler(req,res){
       // Gênero pode chegar como rótulo ("Terror") ou ID ("27"): normaliza para ID, senão o TMDB rejeita with_genres com HTTP 422.
       let withGenres = genre;
       if(withGenres && !/^\d/.test(String(withGenres).trim())){ const g = String(withGenres).trim().toLowerCase(); withGenres = String(GENRE_PT[g] ?? MOOD_TO_GENRES[g] ?? ""); }
-      if(!withGenres && mood) withGenres = MOOD_TO_GENRES[mood.toLowerCase()]||"";
+      if(!withGenres && mood){ const moodKey=mood.toLowerCase(); withGenres = moodKey==="tensao" && type==="tv" ? "9648,80,10759" : (MOOD_TO_GENRES[moodKey]||""); }
       const paramsBase={language:lang, sort_by:"popularity.desc", "vote_count.gte":"30", include_adult:"false"};
       if(withGenres) paramsBase.with_genres=withGenres;
       // Tempo disponível: com runtime (filmes) / duração do episódio (séries).
