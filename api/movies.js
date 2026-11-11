@@ -75,24 +75,22 @@ export default async function handler(req,res){
     if(action==="season"){
       const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim();
       if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
-      // Primeiro busca em português; para episódios sem tradução, completa com o título original/inglês.
-      const pt=await tmdb(`/tv/${id}/season/${seasonNumber}`,{language:"pt-BR"});
-      let episodes=Array.isArray(pt.data.episodes)?pt.data.episodes:[];
-      const needsFallback=episodes.some(ep=>!String(ep.name||"").trim());
-      if(needsFallback){
-        try{
-          const en=await tmdb(`/tv/${id}/season/${seasonNumber}`,{language:"en-US"});
-          const enByNumber=new Map((en.data.episodes||[]).map(ep=>[Number(ep.episode_number),ep]));
-          episodes=episodes.map(ep=>{
-            const fallback=enByNumber.get(Number(ep.episode_number));
-            const title=String(ep.name||"").trim()||String(fallback?.name||fallback?.original_name||"").trim();
-            return {episode_number:ep.episode_number,name:title};
-          });
-        }catch(fallbackError){
-          episodes=episodes.map(ep=>({...ep,name:String(ep.name||"").trim()}));
-        }
-      }
-      return json(res,200,{ok:true,episodes:episodes.map(ep=>({episode_number:ep.episode_number,name:String(ep.name||ep.original_name||"").trim()}))});
+      // Combina os catálogos em português e inglês: usa a tradução quando existe e completa os títulos ausentes.
+      const results=await Promise.allSettled([
+        tmdb(`/tv/${id}/season/${seasonNumber}`,{language:"pt-BR"}),
+        tmdb(`/tv/${id}/season/${seasonNumber}`,{language:"en-US"})
+      ]);
+      const pt=results[0].status==="fulfilled"?(results[0].value.data.episodes||[]):[];
+      const en=results[1].status==="fulfilled"?(results[1].value.data.episodes||[]):[];
+      const merged=new Map();
+      en.forEach(ep=>merged.set(Number(ep.episode_number),{episode_number:ep.episode_number,name:String(ep.name||ep.original_name||"").trim()}));
+      pt.forEach(ep=>{
+        const number=Number(ep.episode_number),previous=merged.get(number)||{episode_number:ep.episode_number,name:""};
+        const translated=String(ep.name||"").trim();
+        merged.set(number,{episode_number:ep.episode_number,name:translated||previous.name});
+      });
+      if(!merged.size) throw new Error("Não foi possível carregar os episódios desta temporada no TMDB");
+      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>Number(x.episode_number)-Number(y.episode_number))});
     }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
