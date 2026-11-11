@@ -2549,6 +2549,17 @@ else if(!firebaseConfig.apiKey || firebaseConfig.apiKey.indexOf("COLE_AQUI")===0
 }
 ACCT.addEventListener("click", async function(){
   if(!confirm("Sair da sua conta neste aparelho? Seus dados ficam salvos na nuvem e neste aparelho como contingência.")) return;
+  /* Garante que alterações recentes (ex.: favoritos) cheguem ao Firestore antes do logout. */
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
+  if(currentUser && db){
+    setStatus("Salvando seus dados antes de sair…");
+    var saved=await saveAllToCloud();
+    if(!saved){
+      setStatus("Não foi possível salvar seus dados. Você continua conectado. Verifique a conexão e tente sair novamente.");
+      setDot("#ef4444");
+      return;
+    }
+  }
   switching=true; syncEnabled=false;
   var uid=currentUser?currentUser.uid:null;
   try{ if(uid){ stashCurrentToPerUID(uid); clearLegacy(); } }catch(e){}
