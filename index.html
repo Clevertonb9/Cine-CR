@@ -3103,74 +3103,65 @@ const CINE_AVATAR_NAMES={"Heróis":["Sentinela Solar","Sombra Rubra","Vórtice",
 function cineAvatarList(category){
  const names=CINE_AVATAR_NAMES[category]||[];
  const palettes={
-  "Heróis":["#ef4444","#2563eb","#f59e0b","#16a34a","#a855f7"],
-  "Fantasia":["#a78bfa","#db8bca","#e0b45c","#55b7a7","#f97316"],
-  "Espacial":["#38bdf8","#94a3b8","#c084fc","#34d399","#f472b6"],
-  "Anime":["#fb7185","#f97316","#a78bfa","#38bdf8","#facc15"],
-  "Monstros":["#84cc16","#22c55e","#a855f7","#fb923c","#14b8a6"],
-  "Aventura":["#d69b45","#2c9b83","#d97706","#65a30d","#e879f9"],
-  "Futuristas":["#22d3ee","#818cf8","#a3e635","#f472b6","#f59e0b"],
-  "Criaturas":["#a78bfa","#60a5fa","#2dd4bf","#fb7185","#facc15"]
+  "Heróis":["#e53935","#2463eb","#f5a623","#16a36a","#8b4bd9"],
+  "Fantasia":["#9b70df","#d77ab7","#d7a84b","#45a99a","#e87936"],
+  "Espacial":["#38a9df","#8996ad","#a77be2","#37b98d","#e56eae"],
+  "Anime":["#ef6680","#ed7a32","#9872df","#35a8d7","#e2bd35"],
+  "Monstros":["#82b936","#20a66a","#9851bd","#ed873d","#159b91"],
+  "Aventura":["#c28a3c","#278e78","#c47726","#729d37","#bd68a2"],
+  "Futuristas":["#20b8c9","#7775df","#8bbd35","#d65d9c","#d59a28"],
+  "Criaturas":["#9672cf","#579bd8","#26a995","#df718b","#d6aa35"]
  };
- const skins=["#ffdfc4","#f4c7a1","#d99b78","#a96f55","#f0d1b8","#bd8065","#8d5948","#e9b58f","#f8d9bd","#e6ad86"];
+ const skins=["#ffdfc4","#f2c39f","#d99b78","#a96f55","#f0d1b8","#bd8065","#8d5948","#e9b58f","#f8d9bd","#e6ad86"];
  const hairs=["#241b2f","#4a2a20","#171c31","#a65e36","#e6bd69","#6f3b86","#d8e2ee","#32263e","#b94f49","#263f38","#f0f0f0"];
- const styles=["shonen","whimsical","ninja","comic","chibi","creature"];
- const categoryIndex=Object.keys(palettes).indexOf(category);
+ const categoryDetails={
+  "Heróis":{badge:"★",shape:"cape",detail:"#f8d34b"},
+  "Fantasia":{badge:"✦",shape:"magic",detail:"#e9c8ff"},
+  "Espacial":{badge:"✧",shape:"space",detail:"#8deaff"},
+  "Anime":{badge:"",shape:"anime",detail:"#fff0a8"},
+  "Monstros":{badge:"",shape:"monster",detail:"#c8ff7a"},
+  "Aventura":{badge:"",shape:"adventure",detail:"#f4d08b"},
+  "Futuristas":{badge:"",shape:"future",detail:"#8ffaff"},
+  "Criaturas":{badge:"",shape:"creature",detail:"#c4f6dc"}
+ };
+ const detail=categoryDetails[category]||categoryDetails.Heróis;
  return names.map((name,i)=>{
-  const style=styles[(i+Math.max(0,categoryIndex)*2)%styles.length];
-  const seed=i+Math.max(0,categoryIndex)*17;
-  const color=palettes[category]||palettes.Heróis;
-  const main=color[seed%color.length],accent=color[(seed+2)%color.length];
+  const seed=i+Math.max(0,Object.keys(palettes).indexOf(category))*19;
+  const colors=palettes[category]||palettes.Heróis;
+  const main=colors[seed%colors.length],accent=colors[(seed+2)%colors.length];
   const skin=skins[(seed*3)%skins.length],hair=hairs[(seed*7+2)%hairs.length];
-  const bg=["#17152e","#263b62","#432447","#183b3a","#53351f","#25304a"][(seed+styles.indexOf(style))%6];
-  const stroke=style==="whimsical"?"#30264a":style==="shonen"?"#17152b":"#29233a";
-  let head="",hairShape="",eyes="",body="",accessory="",extra="";
-  if(style==="shonen"){
-   head='<path d="M80 28 Q119 25 116 75 L108 108 Q80 132 52 108 L44 74 Q40 28 80 28Z" />';
-   hairShape='<path d="M42 66 L28 27 L53 42 L58 8 L78 35 L98 5 L105 39 L132 22 L117 70 L105 53 L91 65 L78 48 L62 67 L50 53Z"/>';
-   eyes='<path d="M52 69 L72 63 L72 78 L57 81Z M88 63 L108 69 L103 81 L88 78Z" fill="#fff"/><path d="M59 69 L69 68 L68 78 L60 78Z M91 68 L101 69 L100 78 L92 78Z" fill="#1b2340"/><path d="M49 61 L73 57 M87 57 L111 61" stroke="'+stroke+'" stroke-width="5"/>';
-   body='<path d="M17 190 Q19 128 80 121 Q141 128 143 190Z" fill="'+main+'"/><path d="M49 135 L80 154 L111 135 L101 190 H59Z" fill="'+accent+'"/>';
-   accessory='<path d="M39 49 Q80 31 121 49 L115 61 Q80 48 45 61Z" fill="#64748b" stroke="'+stroke+'" stroke-width="4"/><path d="M67 48 L93 59 M93 48 L67 59" stroke="#dbeafe" stroke-width="3"/>';
-   extra='<path d="M20 50 L31 42 L26 57 M136 105 L146 96 L140 115" stroke="#fff" stroke-width="3" stroke-linecap="round"/>';
-  }else if(style==="whimsical"){
-   head='<path d="M80 31 C111 22 125 53 116 88 C111 116 91 120 75 114 C47 119 35 93 43 61 C48 39 62 31 80 31Z"/>';
-   hairShape='<path d="M40 72 C20 41 49 14 72 28 C86 5 119 19 120 49 C139 54 128 83 114 82 L108 56 C92 69 79 48 68 58 C58 70 51 54 40 72Z"/>';
-   eyes='<ellipse cx="64" cy="75" rx="10" ry="13" fill="#fff"/><ellipse cx="97" cy="73" rx="8" ry="11" fill="#fff"/><circle cx="66" cy="78" r="5" fill="#25334d"/><circle cx="98" cy="76" r="4" fill="#25334d"/><circle cx="68" cy="73" r="2.5" fill="#fff"/><circle cx="100" cy="72" r="2" fill="#fff"/>';
-   body='<path d="M16 190 Q26 128 80 126 Q134 128 144 190Z" fill="'+main+'"/><path d="M53 139 Q80 162 107 139 L117 190 H43Z" fill="'+accent+'"/>';
-   accessory='<circle cx="42" cy="91" r="11" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/><circle cx="119" cy="96" r="8" fill="#facc15" stroke="'+stroke+'" stroke-width="3"/>';
-   extra='<path d="M22 32 Q35 16 46 31 M125 25 Q139 14 145 30" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>';
-  }else if(style==="ninja"){
-   head='<path d="M80 30 Q113 30 112 68 L106 104 L80 120 L54 104 L48 68 Q47 30 80 30Z"/>';
-   hairShape='<path d="M43 67 Q31 26 72 20 Q111 10 124 54 L113 70 L104 52 L91 64 L79 45 L63 66 L51 54Z"/>';
-   eyes='<path d="M53 76 Q64 62 76 76 Q64 86 53 76Z M84 76 Q96 62 108 76 Q96 86 84 76Z" fill="#fff"/><circle cx="65" cy="76" r="4" fill="#18243d"/><circle cx="96" cy="76" r="4" fill="#18243d"/><path d="M49 66 L76 70 M84 70 L112 66" stroke="'+stroke+'" stroke-width="5"/>';
-   body='<path d="M14 190 Q25 125 80 125 Q135 125 146 190Z" fill="#20243b"/><path d="M38 139 L80 155 L122 139 L111 190 H49Z" fill="'+main+'"/><path d="M50 147 L110 147" stroke="'+accent+'" stroke-width="8"/>';
-   accessory='<path d="M37 49 Q80 31 123 49 L117 65 Q80 52 43 65Z" fill="#374151" stroke="'+stroke+'" stroke-width="4"/><rect x="64" y="48" width="32" height="12" rx="3" fill="#cbd5e1"/><path d="M70 54 L90 54" stroke="#334155" stroke-width="3"/>';
-   extra='<path d="M115 57 Q145 48 145 75 L130 82" fill="none" stroke="'+accent+'" stroke-width="5"/>';
-  }else if(style==="comic"){
-   head='<path d="M80 25 Q120 25 117 72 L108 106 L80 120 L52 106 L43 72 Q40 25 80 25Z"/>';
-   hairShape='<path d="M42 69 Q35 16 80 17 Q127 16 119 69 L105 51 L93 61 L80 44 L65 62 L51 51Z"/>';
-   eyes='<path d="M49 67 L75 63 L72 81 L52 82Z M85 63 L111 67 L108 82 L88 81Z" fill="#fff" stroke="'+stroke+'" stroke-width="3"/><circle cx="63" cy="73" r="5" fill="#172033"/><circle cx="97" cy="73" r="5" fill="#172033"/>';
-   body='<path d="M12 190 Q20 125 80 120 Q140 125 148 190Z" fill="'+main+'" stroke="'+stroke+'" stroke-width="5"/><path d="M80 133 L97 151 L80 177 L63 151Z" fill="'+accent+'" stroke="#fff" stroke-width="3"/>';
-   accessory='<path d="M43 66 Q80 48 117 66 L111 84 Q80 72 49 84Z" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/>';
-   extra='<path d="M19 28 L29 35 L22 45 L35 51 M141 27 L131 37 L140 45 L127 52" fill="none" stroke="#fff" stroke-width="3"/>';
-  }else if(style==="chibi"){
-   head='<path d="M80 23 C119 23 128 57 117 92 C108 122 52 122 43 92 C32 57 41 23 80 23Z"/>';
-   hairShape='<path d="M37 70 Q28 16 80 15 Q132 16 123 70 L109 52 L96 62 L80 43 L64 62 L50 52Z"/>';
-   eyes='<ellipse cx="63" cy="73" rx="12" ry="15" fill="#fff"/><ellipse cx="97" cy="73" rx="12" ry="15" fill="#fff"/><ellipse cx="65" cy="77" rx="6" ry="8" fill="#26334b"/><ellipse cx="99" cy="77" rx="6" ry="8" fill="#26334b"/><circle cx="67" cy="71" r="3" fill="#fff"/><circle cx="101" cy="71" r="3" fill="#fff"/>';
-   body='<path d="M28 190 Q30 130 80 130 Q130 130 132 190Z" fill="'+main+'"/><path d="M57 142 L80 157 L103 142 L111 190 H49Z" fill="'+accent+'"/>';
-   accessory='<circle cx="45" cy="105" r="8" fill="#f9a8d4"/><circle cx="115" cy="105" r="8" fill="#f9a8d4"/><path d="M64 98 Q80 108 96 98" fill="none" stroke="#9f5366" stroke-width="4" stroke-linecap="round"/>';
-   extra='<path d="M19 52 L27 43 L35 52 L27 61Z M125 42 L133 33 L141 42 L133 51Z" fill="'+accent+'"/>';
-  }else{
-   head='<path d="M80 31 Q116 27 117 72 Q119 113 80 116 Q41 113 43 72 Q44 27 80 31Z"/>';
-   hairShape='<path d="M43 69 Q25 25 68 18 Q107 5 123 49 L113 73 L104 56 L89 67 L78 48 L61 68 L51 55Z"/>';
-   eyes='<ellipse cx="64" cy="73" rx="9" ry="11" fill="#fff"/><ellipse cx="96" cy="73" rx="9" ry="11" fill="#fff"/><ellipse cx="66" cy="75" rx="5" ry="7" fill="#25334d"/><ellipse cx="98" cy="75" rx="5" ry="7" fill="#25334d"/>';
-   body='<path d="M15 190 Q25 129 80 126 Q135 129 145 190Z" fill="'+main+'"/><path d="M47 145 Q80 161 113 145 L122 190 H38Z" fill="'+accent+'"/>';
-   accessory='<path d="M48 41 Q30 12 22 37 Q27 57 49 59 M112 41 Q130 12 138 37 Q133 57 111 59" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/>';
-   extra='<circle cx="32" cy="115" r="7" fill="'+accent+'"/><circle cx="128" cy="115" r="7" fill="'+accent+'"/>';
-  }
-  const mouth=style==="shonen"||style==="ninja"?'<path d="M69 96 Q80 102 91 96" fill="none" stroke="#8f4357" stroke-width="3" stroke-linecap="round"/>':style==="whimsical"?'<path d="M69 94 Q80 108 93 93" fill="none" stroke="#8f4357" stroke-width="4" stroke-linecap="round"/>':'<ellipse cx="80" cy="96" rx="'+(seed%2?5:8)+'" ry="5" fill="#8f4357"/>';
-  const neck='<path d="M68 105 H92 V132 Q80 143 68 132Z" fill="'+skin+'" stroke="'+stroke+'" stroke-width="3"/>';
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 210"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+bg+'"/><stop offset=".55" stop-color="#25304a"/><stop offset="1" stop-color="#090d18"/></linearGradient><linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+main+'"/><stop offset="1" stop-color="'+accent+'"/></linearGradient><linearGradient id="skin" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#fff0df"/><stop offset=".34" stop-color="'+skin+'"/><stop offset="1" stop-color="#815746"/></linearGradient><linearGradient id="hair" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fff" stop-opacity=".38"/><stop offset=".25" stop-color="'+hair+'"/><stop offset="1" stop-color="#090b18"/></linearGradient><radialGradient id="halo"><stop stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="160" height="210" rx="'+(style==="whimsical"?"12":"23")+'" fill="url(#bg)"/><g transform="translate(17 18) scale(.78)"><ellipse cx="80" cy="76" rx="72" ry="72" fill="url(#halo)"/><circle cx="80" cy="78" r="67" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/>'+extra+body+neck+'<g fill="url(#skin)" stroke="'+stroke+'" stroke-width="'+(style==="whimsical"?"3":"4")+'" stroke-linejoin="round">'+head+'</g><g fill="url(#hair)" stroke="'+stroke+'" stroke-width="4" stroke-linejoin="round">'+hairShape+'</g>'+accessory+eyes+'<ellipse cx="53" cy="91" rx="9" ry="4" fill="#f18b91" opacity=".26"/><ellipse cx="107" cy="91" rx="9" ry="4" fill="#f18b91" opacity=".26"/><path d="M79 78 Q75 88 80 90" fill="none" stroke="#8b5c50" stroke-opacity=".42" stroke-width="2" stroke-linecap="round"/><path d="M55 55 Q70 43 86 48" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="3" stroke-linecap="round"/><path d="M54 87 Q64 91 73 87 M87 87 Q96 91 106 87" fill="none" stroke="#e98b9d" stroke-width="3" stroke-linecap="round" opacity=".65"/>'+mouth+'<path d="M18 190 Q80 169 142 190" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="3"/></g></svg>';
+  const bg=["#17233d","#29385a","#432747","#173f3c","#52351f","#252d49"][(seed*3)%6];
+  const stroke="#20243a";
+  const faceShape=[
+   "M80 35 C112 31 123 56 115 91 C109 120 91 128 80 128 C67 128 47 117 43 88 C38 55 49 34 80 35Z",
+   "M80 31 C108 27 120 52 117 82 C115 112 98 127 80 127 C60 127 42 110 43 80 C43 48 53 31 80 31Z",
+   "M80 34 C105 30 119 53 114 88 C110 115 94 126 80 126 C63 126 46 113 45 86 C43 54 55 34 80 34Z",
+   "M80 32 C116 32 122 61 113 94 C106 120 92 129 80 129 C66 129 49 117 45 91 C39 58 49 32 80 32Z"
+  ][seed%4];
+  const hairShapes=[
+   "M42 70 C28 35 50 12 75 25 C91 5 124 18 121 53 L114 73 L103 54 L91 67 L78 48 L63 68 L51 55Z",
+   "M43 66 C32 23 61 14 78 26 C100 8 126 29 119 67 L108 57 L98 68 L83 48 L66 66 L53 55Z",
+   "M42 70 C33 45 34 18 62 18 C73 3 91 13 96 22 C121 15 130 42 117 73 L104 54 L91 66 L79 48 L63 68 L51 55Z",
+   "M44 68 C31 34 48 10 73 20 C94 4 122 20 119 55 L111 72 L99 55 L86 66 L76 47 L60 67 L51 54Z"
+  ][(seed*3)%4];
+  const eyeY=76+(seed%3);
+  const eyes=seed%3===0
+   ? '<ellipse cx="64" cy="'+eyeY+'" rx="10" ry="13" fill="#fff"/><ellipse cx="97" cy="'+eyeY+'" rx="10" ry="13" fill="#fff"/><ellipse cx="66" cy="'+(eyeY+2)+'" rx="5" ry="7" fill="#25334d"/><ellipse cx="99" cy="'+(eyeY+2)+'" rx="5" ry="7" fill="#25334d"/><circle cx="68" cy="'+(eyeY-2)+'" r="2.5" fill="#fff"/><circle cx="101" cy="'+(eyeY-2)+'" r="2.5" fill="#fff"/>'
+   : '<path d="M51 '+eyeY+' Q64 '+(eyeY-12)+' 76 '+eyeY+' Q64 '+(eyeY+13)+' 51 '+eyeYZ+'Z M84 '+eyeY+' Q97 '+(eyeY-12)+' 109 '+eyeY+' Q97 '+(eyeY+13)+' 84 '+eyeY+'Z" fill="#fff"/><circle cx="65" cy="'+eyeY+'" r="5" fill="#25334d"/><circle cx="98" cy="'+eyeY+'" r="5" fill="#25334d"/>';
+  const brows='<path d="M51 61 Q64 54 76 61 M85 61 Q98 54 109 61" fill="none" stroke="'+stroke+'" stroke-width="5" stroke-linecap="round"/>';
+  const mouth=seed%3===0?'<path d="M68 101 Q80 112 93 100" fill="none" stroke="#9c4558" stroke-width="4" stroke-linecap="round"/>':'<path d="M70 102 Q80 108 90 101" fill="none" stroke="#9c4558" stroke-width="4" stroke-linecap="round"/>';
+  const ears='<path d="M46 77 Q31 68 34 89 Q37 103 49 99 M114 77 Q129 68 126 89 Q123 103 111 99" fill="'+skin+'" stroke="'+stroke+'" stroke-width="5"/>';
+  const body='<path d="M14 205 Q18 137 80 132 Q142 137 146 205Z" fill="'+main+'" stroke="'+stroke+'" stroke-width="6"/><path d="M48 143 L80 166 L112 143 L124 205 H36Z" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/><path d="M80 166 L80 204" stroke="#fff" stroke-opacity=".55" stroke-width="4"/>';
+  let categoryArt="";
+  if(detail.shape==="cape") categoryArt='<path d="M34 143 L8 197 L40 188 L80 207 L120 188 L152 197 L126 143 L108 154 L80 169 L52 154Z" fill="'+accent+'" stroke="'+stroke+'" stroke-width="6"/><path d="M64 151 L80 137 L96 151 L80 173Z" fill="'+detail.detail+'" stroke="'+stroke+'" stroke-width="4"/><path d="M38 49 Q80 25 122 49 L116 66 Q80 52 44 66Z" fill="'+main+'" stroke="'+stroke+'" stroke-width="5"/>';
+  if(detail.shape==="magic") categoryArt='<path d="M42 52 L80 3 L118 52 Q80 39 42 52Z" fill="'+main+'" stroke="'+stroke+'" stroke-width="6"/><path d="M42 51 Q80 65 118 51 L114 64 Q80 78 46 64Z" fill="'+detail.detail+'" stroke="'+stroke+'" stroke-width="4"/><path d="M112 117 L124 97 L136 117 L124 137Z" fill="'+detail.detail+'" stroke="'+stroke+'" stroke-width="4"/><circle cx="124" cy="116" r="4" fill="#fff"/>';
+  if(detail.shape==="space") categoryArt='<path d="M38 69 Q27 14 80 12 Q133 14 122 69" fill="none" stroke="'+detail.detail+'" stroke-width="9"/><path d="M42 67 Q80 47 118 67 L113 91 Q80 107 47 91Z" fill="#72d9f2" fill-opacity=".25" stroke="'+detail.detail+'" stroke-width="5"/><circle cx="31" cy="126" r="5" fill="'+detail.detail+'"/><circle cx="130" cy="43" r="4" fill="#fff"/>';
+  if(detail.shape==="anime") categoryArt='<path d="M40 48 Q80 25 120 48 L115 63 Q80 51 45 63Z" fill="'+main+'" stroke="'+stroke+'" stroke-width="5"/><path d="M67 48 L93 62 M93 48 L67 62" stroke="'+detail.detail+'" stroke-width="4"/><path d="M21 35 L28 24 L35 35 M130 35 L137 24 L144 35" fill="none" stroke="'+detail.detail+'" stroke-width="4" stroke-linecap="round"/>';
+  if(detail.shape==="monster") categoryArt='<path d="M51 43 Q28 3 21 37 Q20 63 49 65 M109 43 Q132 3 139 37 Q140 63 111 65" fill="'+accent+'" stroke="'+stroke+'" stroke-width="6"/><path d="M55 111 L64 126 L73 111 M87 111 L96 126 L105 111" fill="#fff" stroke="'+stroke+'" stroke-width="3"/><path d="M47 91 Q80 121 113 91" fill="none" stroke="'+stroke+'" stroke-width="5"/>';
+  if(detail.shape==="adventure") categoryArt='<path d="M27 57 Q80 19 133 57 L126 71 Q80 56 34 71Z" fill="#b77a35" stroke="'+stroke+'" stroke-width="6"/><path d="M50 39 Q80 20 110 39 L104 54 Q80 44 56 54Z" fill="#e4b65f" stroke="'+stroke+'" stroke-width="4"/><path d="M116 122 L135 103 L144 123 L126 140Z" fill="'+detail.detail+'" stroke="'+stroke+'" stroke-width="4"/>';
+  if(detail.shape==="future") categoryArt='<path d="M39 68 Q80 43 121 68 L115 89 Q80 103 45 89Z" fill="#14243b" stroke="'+detail.detail+'" stroke-width="6"/><path d="M49 76 L73 76 M87 76 L111 76" stroke="'+detail.detail+'" stroke-width="5" stroke-linecap="round"/><path d="M33 116 L19 128 M127 116 L141 128" stroke="'+detail.detail+'" stroke-width="5" stroke-linecap="round"/>';
+  if(detail.shape==="creature") categoryArt='<path d="M48 50 Q20 10 17 46 Q18 75 51 78 M112 50 Q140 10 143 46 Q142 75 109 78" fill="'+accent+'" stroke="'+stroke+'" stroke-width="6"/><ellipse cx="80" cy="111" rx="18" ry="10" fill="'+skin+'" stroke="'+stroke+'" stroke-width="4"/><circle cx="73" cy="109" r="3" fill="'+stroke+'"/><circle cx="87" cy="109" r="3" fill="'+stroke+'"/>';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 210"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+bg+'"/><stop offset="1" stop-color="#090d18"/></linearGradient><linearGradient id="skin" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0df"/><stop offset=".45" stop-color="'+skin+'"/><stop offset="1" stop-color="#815746"/></linearGradient><linearGradient id="hair" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".25"/><stop offset=".3" stop-color="'+hair+'"/><stop offset="1" stop-color="#111322"/></linearGradient></defs><rect width="160" height="210" rx="22" fill="url(#bg)"/><circle cx="80" cy="88" r="69" fill="none" stroke="'+detail.detail+'" stroke-opacity=".42" stroke-width="3"/><path d="M9 190 Q30 164 17 139 M151 190 Q130 164 143 139" fill="none" stroke="'+detail.detail+'" stroke-opacity=".45" stroke-width="3"/>'+body+categoryArt+ears+'<path d="'+faceShape+'" fill="url(#skin)" stroke="'+stroke+'" stroke-width="6" stroke-linejoin="round"/><path d="'+hairShapes+'" fill="url(#hair)" stroke="'+stroke+'" stroke-width="6" stroke-linejoin="round"/>'+brows+eyes+'<path d="M79 83 Q74 94 80 96" fill="none" stroke="#9b6657" stroke-width="3" stroke-linecap="round"/><ellipse cx="54" cy="96" rx="9" ry="5" fill="#f28a91" opacity=".45"/><ellipse cx="106" cy="96" rx="9" ry="5" fill="#f28a91" opacity=".45"/>'+mouth+'<path d="M52 133 Q80 148 108 133" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="3"/><circle cx="'+(18+(seed*13)%124)+'" cy="'+(18+(seed*7)%35)+'" r="3" fill="'+detail.detail+'"/></svg>';
   return {name,url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg)};
  });
 }
