@@ -72,6 +72,12 @@ export default async function handler(req,res){
       const {data}=await tmdb("/search/multi",{language:lang, query:q.query||"", page:q.page||"1", include_adult:"false"});
       return json(res,200,{ok:true, results:(data.results||[]).filter(x=>x.media_type==="movie"||x.media_type==="tv")});
     }
+    if(action==="season"){
+      const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim();
+      if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
+      const {data}=await tmdb(`/tv/${id}/season/${seasonNumber}`,{language:lang});
+      return json(res,200,{ok:true,episodes:(data.episodes||[]).map(ep=>({episode_number:ep.episode_number,name:ep.name||""}))});
+    }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
       const {data}=await tmdb(`/${type}/${q.id}`,{language:lang, append_to_response:"credits,watch/providers,content_ratings,release_dates"});
