@@ -2121,6 +2121,467 @@ body{
 </head>
 <body>
   <div id="root"></div>
+
+<!-- ===== CINECR • LOGIN GOOGLE + SYNC FIREBASE v4 (isolamento por UID, chunking, sync completa) ===== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<div id="cinecr-login-gate" style="position:fixed;inset:0;z-index:100;background:#050505;color:#fff;display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <div style="width:100%;max-width:420px;text-align:center">
+    <div style="width:72px;height:72px;margin:0 auto;border-radius:18px;background:#E50914;display:grid;place-items:center;font-weight:900;font-size:30px;letter-spacing:-1px">CR</div>
+    <h1 style="font-size:34px;line-height:1;margin:18px 0 6px">CINE <span style="color:#E50914">CR</span></h1>
+    <p style="color:#b8b8b8;font-size:14px;margin:0 0 22px">Descubra, salve e decida o que assistir hoje.</p>
+    <div id="cinecr-gate-status" style="font-size:13px;color:#b8b8b8;min-height:20px;margin-bottom:12px">Verificando sua conta…</div>
+    <button id="cinecr-google-btn" style="display:none;width:100%;background:#fff;color:#111;border:0;border-radius:999px;padding:14px 16px;font-weight:800;font-size:15px;cursor:pointer">Entrar com Google</button>
+    <p id="cinecr-gate-error" style="display:none;color:#fca5a5;font-size:13px;margin-top:14px"></p>
+    <p style="color:#777;font-size:11px;margin-top:18px">Seus Favoritos, Assistidos e Quero Ver ficam salvos na sua conta e sincronizam entre aparelhos.</p>
+  </div>
+</div>
+<button id="cinecr-account-btn" title="Conta Cine-CR" style="display:none;position:fixed;right:12px;bottom:92px;z-index:90;background:#111;border:1px solid #333;color:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;align-items:center;gap:8px;max-width:220px">
+  <span id="cinecr-account-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e"></span>
+  <span id="cinecr-account-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Minha conta</span>
+  <span style="color:#fca5a5">Sair</span>
+</button>
+<script>
+(function(){
+"use strict";
+var GATE=document.getElementById("cinecr-login-gate");
+var STATUS=document.getElementById("cinecr-gate-status");
+var BTN=document.getElementById("cinecr-google-btn");
+var ERR=document.getElementById("cinecr-gate-error");
+var ACCT=document.getElementById("cinecr-account-btn");
+var ACCT_LABEL=document.getElementById("cinecr-account-label");
+var DOT=document.getElementById("cinecr-account-dot");
+function setStatus(s){ if(STATUS) STATUS.textContent=s; }
+function setError(s){ if(!ERR) return; if(s){ ERR.style.display="block"; ERR.textContent=s; } else { ERR.style.display="none"; ERR.textContent=""; } }
+function setDot(c){ if(DOT) DOT.style.background=c; }
+/* ---------- chaves ---------- */
+var SYNC_KEYS=["cinecr_favoritos","cinecr_assistidos_v1","cinecr_quero_assistir_v1","cinecr_hist_filmes","cinecr_hist_series"];
+var ACCOUNT_KEY="cinecr_account_uid";
+var MIGRATION_KEY=function(uid){ return "cinecr_migration_"+uid; };
+var PERUID_KEY=function(uid,key){ return "cinecr_uid_"+uid+"__"+key; };
+function isCineCRMetaKey(k){ return k===ACCOUNT_KEY || k.indexOf("cinecr_migration_")===0 || k.indexOf("cinecr_uid_")===0; }
+var suppress=false, switching=false, syncEnabled=false, saveTimer=null, pendingSave=false, currentUser=null;
+function readLocal(key){ try{ var v=window.localStorage.getItem(key); return v==null?null:JSON.parse(v); }catch(e){ return null; } }
+function readRaw(key){ try{ return window.localStorage.getItem(key); }catch(e){ return null; } }
+function writeLocal(key,val){ suppress=true; try{ window.localStorage.setItem(key, JSON.stringify(val)); }catch(e){} suppress=false; }
+function removeLocal(key){ suppress=true; try{ window.localStorage.removeItem(key); }catch(e){} suppress=false; }
+function same(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b); }catch(e){ return false; } }
+function unionArr(a,b){ var out=[], seen={}; (a||[]).concat(b||[]).forEach(function(x){ var k=typeof x==="string"?x:JSON.stringify(x); if(!seen[k]){ seen[k]=1; out.push(x); } }); return out; }
+/* ---------- merge (uniao idempotente) ---------- */
+function mergeAssistidos(local,cloud){
+  local=local||{movies:[],episodes:[],movieMeta:{},seriesMeta:{}}; cloud=cloud||{movies:[],episodes:[],movieMeta:{},seriesMeta:{}};
+  var movieMeta=Object.assign({},local.movieMeta||{});
+  Object.keys(cloud.movieMeta||{}).forEach(function(k){ var c=cloud.movieMeta[k], l=local.movieMeta&&local.movieMeta[k]; movieMeta[k]=(c&&c.title)?c:(l||c); });
+  var seriesMeta=Object.assign({},local.seriesMeta||{});
+  Object.keys(cloud.seriesMeta||{}).forEach(function(k){ var c=cloud.seriesMeta[k], l=local.seriesMeta&&local.seriesMeta[k]; seriesMeta[k]=(c&&c.title)?c:(l||c); });
+  return {movies:unionArr(local.movies,cloud.movies),episodes:unionArr(local.episodes,cloud.episodes),movieMeta:movieMeta,seriesMeta:seriesMeta};
+}
+function mergeQuero(local,cloud){
+  var out=[], seen={};
+  (cloud||[]).concat(local||[]).forEach(function(it){ if(!it||it.tmdbId===void 0||!it.media_type) return; var k=it.media_type+":"+String(it.tmdbId); if(seen[k]) return; seen[k]=1; out.push(it); });
+  return out;
+}
+function mergeHistorico(local,cloud){ return {filmes:unionArr((local&&local.filmes)||(Array.isArray(local)?local:[]),(cloud&&cloud.filmes)||[]), series:unionArr((local&&local.series)||[],(cloud&&cloud.series)||[])}; }
+function localToCloud(key){
+  if(key==="cinecr_favoritos"){ var v=readLocal(key); return {items:Array.isArray(v)?v:[]}; }
+  if(key==="cinecr_assistidos_v1"){ var a=readLocal(key)||{movies:[],episodes:[],movieMeta:{},seriesMeta:{}}; return {movies:a.movies||[],episodes:a.episodes||[],movieMeta:a.movieMeta||{},seriesMeta:a.seriesMeta||{}}; }
+  if(key==="cinecr_quero_assistir_v1"){ var q=readLocal(key); return {items:Array.isArray(q)?q:[]}; }
+  if(key==="cinecr_hist_filmes"){ return {filmes:readLocal("cinecr_hist_filmes")||[], series:readLocal("cinecr_hist_series")||[]}; }
+  if(key==="cinecr_hist_series"){ return {filmes:readLocal("cinecr_hist_filmes")||[], series:readLocal("cinecr_hist_series")||[]}; }
+  return null;
+}
+/* ---------- cache isolado por UID ---------- */
+/* Considera dados úteis apenas quando há conteúdo real; protege cópias de listas vazias. */
+function hasStoredData(value){
+  if(value==null) return false;
+  if(Array.isArray(value)) return value.length>0;
+  if(typeof value==="object") return Object.keys(value).some(function(k){ return hasStoredData(value[k]); });
+  if(typeof value==="string") return value.length>0;
+  if(typeof value==="number") return value!==0;
+  if(typeof value==="boolean") return value;
+  return false;
+}
+function rawHasStoredData(raw){
+  if(raw==null || raw==="") return false;
+  try{ return hasStoredData(JSON.parse(raw)); }catch(e){ return true; }
+}
+function stashCurrentToPerUID(uid){
+  if(!uid) return;
+  SYNC_KEYS.forEach(function(key){
+    var raw=readRaw(key);
+    /* Nunca substitui uma cópia útil por uma chave ausente/vazia. */
+    if(!rawHasStoredData(raw)) return;
+    suppress=true;
+    try{ window.localStorage.setItem(PERUID_KEY(uid,key), raw); }catch(e){}
+    suppress=false;
+  });
+}
+function restorePerUIDToLegacy(uid){
+  if(!uid) return false;
+  var restored=false;
+  SYNC_KEYS.forEach(function(key){
+    var backup=readRaw(PERUID_KEY(uid,key));
+    if(!rawHasStoredData(backup)) return;
+    var current=readRaw(key);
+    /* Restaura apenas quando o valor atual está ausente/vazio; nunca sobrescreve dados atuais. */
+    if(rawHasStoredData(current)) return;
+    suppress=true;
+    try{ window.localStorage.setItem(key, backup); restored=true; }catch(e){}
+    suppress=false;
+  });
+  return restored;
+}
+function clearLegacy(){
+  SYNC_KEYS.forEach(function(key){ removeLocal(key); });
+}
+/* ---------- Firestore com chunking versionado (limite 1 MiB/doc) ---------- */
+var CHUNK_ARRAY=400, CHUNK_OBJ=100, CHUNK_ITEMS=800;
+function chunkName(docId,field,i){ return docId+"__"+field+"_"+String(i).padStart(3,"0"); }
+function versionedChunkName(docId,generation,field,i){ return docId+"__g_"+generation+"__"+field+"_"+String(i).padStart(3,"0"); }
+function chunkArrayField(arr,size){ var out=[]; for(var i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out.length?out:[[]]; }
+function chunkObjField(obj,size){ var keys=Object.keys(obj||{}), out=[]; for(var i=0;i<keys.length;i+=size){ var part={}; keys.slice(i,i+size).forEach(function(k){ part[k]=obj[k]; }); out.push(part); } return out.length?out:[{}]; }
+var BATCH_LIMIT=450;
+async function commitBatches(firestoreObj, ops){
+  if(!firestoreObj || typeof firestoreObj.batch!=="function") throw new Error("Firestore batch indisponível.");
+  for(var s=0;s<ops.length;s+=BATCH_LIMIT){
+    var batch=firestoreObj.batch();
+    ops.slice(s,s+BATCH_LIMIT).forEach(function(op){ if(op.type==="delete") batch.delete(op.ref); else batch.set(op.ref,op.data); });
+    await batch.commit();
+  }
+}
+async function writeChunked(base,docId,payload){
+  var fsObj=(base&&base.firestore)||(typeof db!=="undefined"?db:null);
+  if(!fsObj || typeof fsObj.runTransaction!=="function") throw new Error("Transações do Firestore indisponíveis.");
+  // Cada gravação usa IDs exclusivos. O índice só aponta para a geração depois
+  // que todos os blocos foram gravados; leitores nunca misturam gerações.
+  var generation=(function(){var a=new Uint8Array(12); if(window.crypto&&window.crypto.getRandomValues) window.crypto.getRandomValues(a); else for(var j=0;j<a.length;j++) a[j]=Math.floor(Math.random()*256); return Array.from(a).map(function(x){return x.toString(16).padStart(2,"0");}).join("");})();
+  var writes=[], index={generation:generation,chunks:{}};
+  function put(name,data){writes.push({type:"set",ref:base.doc(name),data:data});}
+  Object.keys(payload||{}).forEach(function(field){
+    var val=payload[field];
+    if(Array.isArray(val)&&val.length>CHUNK_ITEMS){
+      var parts=chunkArrayField(val,CHUNK_ARRAY); index.chunks[field]=parts.length;
+      parts.forEach(function(part,i){put(versionedChunkName(docId,generation,field,i),{generation:generation,chunk:i,field:field,items:part});});
+    }else if(val&&typeof val==="object"&&!Array.isArray(val)&&Object.keys(val).length>CHUNK_OBJ){
+      var objs=chunkObjField(val,CHUNK_OBJ); index.chunks[field]=objs.length;
+      objs.forEach(function(part,i){put(versionedChunkName(docId,generation,field,i),{generation:generation,chunk:i,field:field,entries:part});});
+    }else index[field]=val;
+  });
+  await commitBatches(fsObj,writes);
+  // Transação serializa a troca do ponteiro e incrementa revisão monotônica.
+  var indexRef=base.doc(docId), committed=null;
+  await fsObj.runTransaction(async function(tx){
+    var snap=await tx.get(indexRef), previous=snap.exists?(snap.data()||{}):{};
+    committed=Object.assign({},index,{revision:(Number(previous.revision)||0)+1,updatedAt:Date.now()});
+    tx.set(indexRef,committed);
+  });
+  return committed;
+}
+async function readChunked(base,docId){
+  var snap=await base.doc(docId).get(); if(!snap.exists)return null;
+  var data=snap.data()||{}, chunks=data.chunks||{}, fields=Object.keys(chunks);
+  if(!fields.length)return data;
+  var out={}; Object.keys(data).forEach(function(k){if(k!=="chunks")out[k]=data[k];});
+  for(var ci=0;ci<fields.length;ci++){
+    var field=fields[ci],n=Number(chunks[field])||0,isObj=false,arr=[],obj={};
+    var names=Array.from({length:n},function(_,i){return data.generation?versionedChunkName(docId,data.generation,field,i):chunkName(docId,field,i);});
+    var snaps=await Promise.all(names.map(function(name){return base.doc(name).get();}));
+    if(snaps.some(function(cs){return !cs.exists;})) throw new Error("Dados incompletos no Firestore: "+docId+"/"+field+". A sincronização foi interrompida para proteger seus dados.");
+    snaps.forEach(function(cs){var cd=cs.data()||{};if(cd.entries){isObj=true;Object.assign(obj,cd.entries);}else if(cd.items)arr=arr.concat(cd.items);});
+    out[field]=isObj?obj:arr;
+  }
+  return out;
+}
+var TAB_ID="tab-"+Math.random().toString(36).slice(2,10)+"-"+Date.now();
+var LAST_SYNC_KEY=function(uid,docId){ return "cinecr_last_sync_"+uid+"_"+docId; };
+function getLastSync(docId){
+  if(!currentUser) return null;
+  try{ var v=window.localStorage.getItem(LAST_SYNC_KEY(currentUser.uid,docId)); return v?JSON.parse(v):null; }catch(e){ return null; }
+}
+function setLastSync(docId, payload, revision){
+  if(!currentUser) return;
+  suppress=true; try{ window.localStorage.setItem(LAST_SYNC_KEY(currentUser.uid,docId), JSON.stringify({payload:payload, revision:Number(revision)||0})); }catch(e){} suppress=false;
+}
+function removedKeys(lastArr, curArr, keyFn){
+  var cur={}; (curArr||[]).forEach(function(x){ cur[keyFn(x)]=1; });
+  var out=[]; (lastArr||[]).forEach(function(x){ var k=keyFn(x); if(!cur[k]) out.push(k); });
+  return out;
+}
+function filterRemovedArr(arr, removedSet, keyFn){
+  if(!removedSet || !removedSet.length) return arr||[];
+  var rm={}; removedSet.forEach(function(k){ rm[k]=1; });
+  return (arr||[]).filter(function(x){ return !rm[keyFn(x)]; });
+}
+function keyStr(x){ return typeof x==="string"?x:JSON.stringify(x); }
+function keyQuero(x){ return x.media_type+":"+String(x.tmdbId); }
+async function fetchCloudAll(){
+  var base=db.collection("users").doc(currentUser.uid).collection("data");
+  var cloud={};
+  var fav=await readChunked(base,"favoritos"); if(fav) cloud.favoritos=fav;
+  var as=await readChunked(base,"assistidos"); if(as) cloud.assistidos=as;
+  var qv=await readChunked(base,"quero_ver"); if(qv) cloud.quero_ver=qv;
+  var hi=await readChunked(base,"historico"); if(hi) cloud.historico=hi;
+  return {base:base, cloud:cloud};
+}
+function mergeCloudIntoLocal(cloud){
+  // Aplica remocoes locais (itens que existiam no ultimo sync e sumiram localmente)
+  // antes da uniao, para que outro dispositivo nao ressuscite o que foi removido aqui.
+  var changed=false;
+  var lastFav=getLastSync("favoritos"), lastAs=getLastSync("assistidos"), lastQ=getLastSync("quero_ver"), lastH=getLastSync("historico");
+  var localFav=readLocal("cinecr_favoritos")||[];
+  var cloudFav=cloud.favoritos?cloud.favoritos.items:[];
+  var remFav=lastFav?removedKeys(lastFav.payload&&lastFav.payload.items, localFav, keyStr):[];
+  cloudFav=filterRemovedArr(cloudFav, remFav, keyStr);
+  var mergedFav=unionArr(cloudFav, localFav);
+  if(!same(mergedFav,localFav)){ writeLocal("cinecr_favoritos",mergedFav); changed=true; }
+  var mergedAs=mergeAssistidos(readLocal("cinecr_assistidos_v1"), cloud.assistidos);
+  if(lastAs && lastAs.payload){
+    var remMovies=removedKeys(lastAs.payload.movies, (readLocal("cinecr_assistidos_v1")||{}).movies, keyStr);
+    var remEps=removedKeys(lastAs.payload.episodes, (readLocal("cinecr_assistidos_v1")||{}).episodes, keyStr);
+    if(remMovies.length){ var rmM={}; remMovies.forEach(function(k){ rmM[k]=1; }); mergedAs.movies=mergedAs.movies.filter(function(m){ return !rmM[m]; }); }
+    if(remEps.length){ var rmE={}; remEps.forEach(function(k){ rmE[k]=1; }); mergedAs.episodes=mergedAs.episodes.filter(function(m){ return !rmE[m]; }); }
+  }
+  if(!same(mergedAs, readLocal("cinecr_assistidos_v1"))){ writeLocal("cinecr_assistidos_v1",mergedAs); changed=true; }
+  var mergedQ=mergeQuero(readLocal("cinecr_quero_assistir_v1"), cloud.quero_ver?cloud.quero_ver.items:[]);
+  var remQ=lastQ?removedKeys(lastQ.payload&&lastQ.payload.items, readLocal("cinecr_quero_assistir_v1")||[], keyQuero):[];
+  if(remQ.length){ var rmQ={}; remQ.forEach(function(k){ rmQ[k]=1; }); mergedQ=mergedQ.filter(function(it){ return !rmQ[keyQuero(it)]; }); }
+  if(!same(mergedQ, readLocal("cinecr_quero_assistir_v1")||[])){ writeLocal("cinecr_quero_assistir_v1",mergedQ); changed=true; }
+  var localHist={filmes:readLocal("cinecr_hist_filmes")||[], series:readLocal("cinecr_hist_series")||[]};
+  var mergedHist=mergeHistorico(localHist, cloud.historico);
+  var remHF=lastH?removedKeys(lastH.payload&&lastH.payload.filmes, localHist.filmes, keyStr):[];
+  var remHS=lastH?removedKeys(lastH.payload&&lastH.payload.series, localHist.series, keyStr):[];
+  if(remHF.length){ var r1={}; remHF.forEach(function(k){ r1[k]=1; }); mergedHist.filmes=mergedHist.filmes.filter(function(m){ return !r1[m]; }); }
+  if(remHS.length){ var r2={}; remHS.forEach(function(k){ r2[k]=1; }); mergedHist.series=mergedHist.series.filter(function(m){ return !r2[m]; }); }
+  if(!same(mergedHist,localHist)){ writeLocal("cinecr_hist_filmes",mergedHist.filmes); writeLocal("cinecr_hist_series",mergedHist.series); changed=true; }
+  return changed;
+}
+async function writeLocalToCloud(){
+  var base=db.collection("users").doc(currentUser.uid).collection("data");
+  var i1=await writeChunked(base, "favoritos", localToCloud("cinecr_favoritos")); setLastSync("favoritos", localToCloud("cinecr_favoritos"), i1.revision);
+  var i2=await writeChunked(base, "assistidos", localToCloud("cinecr_assistidos_v1")); setLastSync("assistidos", localToCloud("cinecr_assistidos_v1"), i2.revision);
+  var i3=await writeChunked(base, "quero_ver", localToCloud("cinecr_quero_assistir_v1")); setLastSync("quero_ver", localToCloud("cinecr_quero_assistir_v1"), i3.revision);
+  var i4=await writeChunked(base, "historico", localToCloud("cinecr_hist_filmes")); setLastSync("historico", localToCloud("cinecr_hist_filmes"), i4.revision);
+  await base.doc("perfil").set({displayName:currentUser.displayName||"",email:currentUser.email||"",photoURL:currentUser.photoURL||"",updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+}
+function broadcastSync(){
+  var msg={uid:currentUser?currentUser.uid:null, ts:Date.now(), source:TAB_ID};
+  try{ if(typeof BroadcastChannel!=="undefined"){ var ch=new BroadcastChannel("cinecr-sync"); ch.postMessage(msg); ch.close(); } }catch(e){}
+  suppress=true; try{ window.localStorage.setItem("cinecr_sync_broadcast", JSON.stringify(msg)); }catch(e){} suppress=false;
+}
+async function saveAllToCloud(){
+  if(!currentUser||!db||switching) return false;
+  pendingSave=false;
+  try{
+    // Merge-before-write: se a nuvem avancou desde o ultimo sync, mescla antes de gravar.
+    // Isso impede que uma gravacao antiga sobrescreva dados mais recentes de outra aba/dispositivo.
+    var fetched=await fetchCloudAll();
+    var cloud=fetched.cloud;
+    var hasNewer=false;
+    ["favoritos","assistidos","quero_ver","historico"].forEach(function(docId){
+      var last=getLastSync(docId);
+      var cloudAt=cloud[docId]?cloud[docId].revision||0:0;
+      if(last && cloudAt>(last.revision||0)) hasNewer=true;
+      if(!last && cloud[docId]) hasNewer=true;
+    });
+    if(hasNewer) mergeCloudIntoLocal(cloud);
+    await writeLocalToCloud();
+    broadcastSync();
+    setDot("#22c55e"); return true;
+  }catch(e){ setDot("#ef4444"); pendingSave=true; return false; }
+}
+function scheduleSave(){ if(!currentUser||!db||switching||!syncEnabled||suppress) return; pendingSave=true; setDot("#f59e0b"); if(saveTimer) clearTimeout(saveTimer); saveTimer=setTimeout(function(){ saveAllToCloud(); },800); }
+async function migrateAndSync(){
+  if(!currentUser||!db) return false;
+  setStatus("Sincronizando seus dados…");
+  try{
+    var fetched=await fetchCloudAll();
+    var cloud=fetched.cloud;
+    var hasCloud=!!(cloud.favoritos||cloud.assistidos||cloud.quero_ver||cloud.historico);
+    var changed=mergeCloudIntoLocal(cloud);
+    // Compara com a nuvem para decidir se precisa gravar o resultado mesclado.
+    var needWrite=!hasCloud;
+    if(!needWrite){
+      var curFav=readLocal("cinecr_favoritos")||[];
+      if(!same(curFav,(cloud.favoritos||{}).items||[])) needWrite=true;
+      var curAs=readLocal("cinecr_assistidos_v1")||{};
+      if(cloud.assistidos && !same({movies:curAs.movies||[],episodes:curAs.episodes||[],movieMeta:curAs.movieMeta||{},seriesMeta:curAs.seriesMeta||{}},{movies:cloud.assistidos.movies||[],episodes:cloud.assistidos.episodes||[],movieMeta:cloud.assistidos.movieMeta||{},seriesMeta:cloud.assistidos.seriesMeta||{}})) needWrite=true;
+      if(!same(readLocal("cinecr_quero_assistir_v1")||[],(cloud.quero_ver||{}).items||[])) needWrite=true;
+      if(!same({filmes:readLocal("cinecr_hist_filmes")||[],series:readLocal("cinecr_hist_series")||[]},{filmes:(cloud.historico||{}).filmes||[],series:(cloud.historico||{}).series||[]})) needWrite=true;
+    }
+    if(changed || needWrite){
+      var ok=await saveAllToCloud();
+      if(!ok) return false;
+    } else {
+      // Nuvem e local ja iguais: registra o sync para o merge-before-write futuro.
+      setLastSync("favoritos", localToCloud("cinecr_favoritos"), (cloud.favoritos||{}).revision||0);
+      setLastSync("assistidos", localToCloud("cinecr_assistidos_v1"), (cloud.assistidos||{}).revision||0);
+      setLastSync("quero_ver", localToCloud("cinecr_quero_assistir_v1"), (cloud.quero_ver||{}).revision||0);
+      setLastSync("historico", localToCloud("cinecr_hist_filmes"), (cloud.historico||{}).revision||0);
+    }
+    suppress=true; try{ window.localStorage.setItem(MIGRATION_KEY(currentUser.uid), "done"); }catch(e){} suppress=false;
+    window.__cinecrLastMergeChanged=changed;
+    try{ window.dispatchEvent(new Event("cinecr-watched-changed")); }catch(e){}
+    return true;
+  }catch(e){ setError("Falha ao sincronizar. Seus dados locais continuam salvos neste aparelho. Verifique a conexão e recarregue."); setDot("#ef4444"); return false; }
+}
+/* ---------- Firebase ---------- */
+var firebaseConfig={
+  apiKey:"AIzaSyCnQDHDa5rZQXb0jmiSlYaxpwRW7hMuprQ",
+  authDomain:"cine-cr.firebaseapp.com",
+  projectId:"cine-cr",
+  storageBucket:"cine-cr.firebasestorage.app",
+  messagingSenderId:"114870476915",
+  appId:"1:114870476915:web:12e554a2ad9736bc5c8a06"
+};
+var auth=null, db=null;
+function showLogin(){ GATE.style.display="flex"; ACCT.style.display="none"; BTN.style.display="block"; setStatus("Entre com sua conta Google para continuar."); }
+function showApp(user){ ACCT_LABEL.textContent=user.displayName||user.email||"Minha conta"; ACCT.style.display="inline-flex"; GATE.style.display="none"; setError(""); }
+var mergeFailed=false;
+async function handleAuth(user){
+  if(!user){ currentUser=null; syncEnabled=false; switching=false; showLogin(); return; }
+  if(currentUser && currentUser.uid===user.uid && window.sessionStorage.getItem("cinecr_sync_done_"+user.uid)){
+    syncEnabled=true; showApp(user); return;
+  }
+  switching=true; syncEnabled=false; mergeFailed=false;
+  var prevUid=null; try{ prevUid=window.localStorage.getItem(ACCOUNT_KEY); }catch(e){}
+  var uidChanged=!!(prevUid && prevUid!==user.uid);
+  try{
+    if(uidChanged){
+      stashCurrentToPerUID(prevUid);
+      clearLegacy();
+    }
+    /* Também restaura ao entrar novamente na MESMA conta: o logout apaga ACCOUNT_KEY. */
+    restorePerUIDToLegacy(user.uid);
+    suppress=true; try{ window.localStorage.setItem(ACCOUNT_KEY, user.uid); }catch(e){} suppress=false;
+  }catch(e){}
+  switching=false; currentUser=user; syncEnabled=true;
+  var flagKey="cinecr_sync_done_"+user.uid;
+  var didMerge=false, ok=false;
+  try{ ok=await migrateAndSync(); didMerge=!!window.__cinecrLastMergeChanged; }catch(e){ ok=false; }
+  if(!ok){
+    // NAO libera a interface com dados possivelmente desatualizados.
+    mergeFailed=true; syncEnabled=false;
+    GATE.style.display="flex"; ACCT.style.display="none";
+    setStatus("Não foi possível sincronizar seus dados. Verifique a conexão.");
+    setError("Seus dados locais não foram apagados. Toque em Tentar novamente.");
+    BTN.textContent="Tentar novamente"; BTN.style.display="block";
+    return;
+  }
+  // Troca de conta: o React ainda tem o estado da conta anterior em memoria.
+  // Recarrega SEMPRE apos a troca, mesmo que a mescla nao tenha mudado nada.
+  if(uidChanged || (didMerge && !window.sessionStorage.getItem(flagKey))){
+    window.sessionStorage.setItem(flagKey,"1");
+    window.location.reload(); return;
+  }
+  window.sessionStorage.setItem(flagKey,"1");
+  showApp(user);
+  startCloudListener();
+}
+function handleRemoteSync(msg){
+  if(!msg || !currentUser || msg.uid!==currentUser.uid || msg.source===TAB_ID) return;
+  var processedKey="cinecr_remote_seen_"+msg.ts;
+  try{ if(window.sessionStorage.getItem(processedKey)) return; window.sessionStorage.setItem(processedKey,"1"); }catch(e){}
+  (async function(){
+    try{
+      var fetched=await fetchCloudAll();
+      var changed=mergeCloudIntoLocal(fetched.cloud);
+      if(changed){ window.sessionStorage.setItem("cinecr_sync_done_"+currentUser.uid,"1"); window.location.reload(); }
+    }catch(e){}
+  })();
+}
+var unsubscribeCloud=null, remoteApplying=false;
+function startCloudListener(){
+  if(unsubscribeCloud){try{unsubscribeCloud();}catch(e){} unsubscribeCloud=null;}
+  if(!currentUser||!db)return;
+  var base=db.collection("users").doc(currentUser.uid).collection("data");
+  var ids=["favoritos","assistidos","quero_ver","historico"], snapshots={}, ready={};
+  var stops=[];
+  function applySnapshot(){
+    if(ids.some(function(id){return !ready[id];})||remoteApplying||!currentUser)return;
+    remoteApplying=true;
+    (async function(){
+      try{var cloud={};
+        for(var j=0;j<ids.length;j++){var k=ids[j];if(snapshots[k])cloud[k]=await readChunked(base,k);}
+        var changed=mergeCloudIntoLocal(cloud);
+        if(changed){window.dispatchEvent(new Event("cinecr-watched-changed"));}
+        ids.forEach(function(k){var c=cloud[k];if(c){var lk=k==="favoritos"?"cinecr_favoritos":k==="assistidos"?"cinecr_assistidos_v1":k==="quero_ver"?"cinecr_quero_assistir_v1":"cinecr_hist_filmes";setLastSync(k,localToCloud(lk),c.revision||0);}});
+      }catch(e){setDot("#ef4444");}
+      finally{remoteApplying=false;}
+    })();
+  }
+  ids.forEach(function(id){
+    var stop=base.doc(id).onSnapshot(function(snap){snapshots[id]=snap.exists?(snap.data()||{}):null;ready[id]=true;applySnapshot();},function(){setDot("#ef4444");});
+    stops.push(stop);
+  });
+  unsubscribeCloud=function(){stops.forEach(function(stop){try{stop();}catch(e){}});};
+}
+try{
+  if(typeof BroadcastChannel!=="undefined"){ var _ch=new BroadcastChannel("cinecr-sync"); _ch.onmessage=function(ev){ handleRemoteSync(ev.data); }; }
+}catch(e){}
+if(!window.firebase || !window.firebase.initializeApp){ setStatus("Não foi possível carregar o Firebase. Verifique sua conexão e recarregue."); setError("SDK do Firebase indisponível."); }
+else if(!firebaseConfig.apiKey || firebaseConfig.apiKey.indexOf("COLE_AQUI")===0){
+  setStatus("Login ainda não configurado.");
+  setError("A configuração Web do Firebase ainda está sem a API Key. Insira a chave Web do projeto Cine-CR em firebaseConfig.apiKey antes de habilitar o login. Não use credenciais administrativas. Nenhum dado foi apagado.");
+  BTN.style.display="none";
+} else {
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    auth=firebase.auth(); db=firebase.firestore();
+    try{ db.enablePersistence({synchronizeTabs:true}).catch(function(){}); }catch(e){}
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
+    BTN.addEventListener("click", function(){
+      if(mergeFailed && auth.currentUser){ setError(""); setStatus("Tentando sincronizar novamente…"); BTN.style.display="none"; handleAuth(auth.currentUser); return; }
+      setError(""); setStatus("Abrindo o login do Google…");
+      var provider=new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({prompt:"select_account"});
+      auth.signInWithPopup(provider).catch(function(err){
+        if(err && err.code==="auth/popup-blocked"){ return auth.signInWithRedirect(provider); }
+        setError("Não foi possível entrar: "+(err&&err.message?err.message:"tente novamente."));
+        setStatus("Entre com sua conta Google para continuar.");
+      });
+    });
+    auth.getRedirectResult().catch(function(){});
+    auth.onAuthStateChanged(function(user){ handleAuth(user); });
+    window.addEventListener("online", function(){ if(pendingSave && currentUser) scheduleSave(); });
+    window.addEventListener("storage", function(ev){ if(ev && ev.key==="cinecr_sync_broadcast" && ev.newValue){ try{ handleRemoteSync(JSON.parse(ev.newValue)); }catch(e){} } });
+  }catch(e){ setStatus("Falha ao iniciar o Firebase."); setError(String(e&&e.message?e.message:e)); }
+}
+ACCT.addEventListener("click", async function(){
+  if(!confirm("Sair da sua conta neste aparelho? Seus dados ficam salvos na nuvem e neste aparelho como contingência.")) return;
+  switching=true; syncEnabled=false;
+  var uid=currentUser?currentUser.uid:null;
+  try{ if(uid){ stashCurrentToPerUID(uid); clearLegacy(); } }catch(e){}
+  try{ window.localStorage.removeItem(ACCOUNT_KEY); }catch(e){}
+  currentUser=null;
+  try{ if(unsubscribeCloud) unsubscribeCloud(); }catch(e){}
+  try{ if(auth) await auth.signOut(); }catch(e){}
+  try{ window.sessionStorage.clear(); }catch(e){}
+  window.location.reload();
+});
+try{
+  var _origSet=Storage.prototype.setItem;
+  var _origRemove=Storage.prototype.removeItem;
+  var _origClear=Storage.prototype.clear;
+  Storage.prototype.setItem=function(k,v){ var r=_origSet.apply(this,arguments); if(!suppress && SYNC_KEYS.indexOf(String(k))>=0) scheduleSave(); return r; };
+  Storage.prototype.removeItem=function(k){ var r=_origRemove.apply(this,arguments); if(!suppress && SYNC_KEYS.indexOf(String(k))>=0) scheduleSave(); return r; };
+  Storage.prototype.clear=function(){
+    // Preserva marcadores de conta/migracao/cache isolado: clear() do app nunca deve apagar o isolamento.
+    var keep={};
+    try{
+      for(var i=0;i<window.localStorage.length;i++){ var kk=window.localStorage.key(i); if(kk && isCineCRMetaKey(kk)) keep[kk]=window.localStorage.getItem(kk); }
+    }catch(e){}
+    var r=_origClear.apply(this,arguments);
+    suppress=true; try{ Object.keys(keep).forEach(function(kk){ window.localStorage.setItem(kk, keep[kk]); }); }catch(e){} suppress=false;
+    if(!suppress) scheduleSave();
+    return r;
+  };
+}catch(e){}
+window.CineCRSync={save:saveAllToCloud, merge:migrateAndSync, keys:SYNC_KEYS, accountKey:ACCOUNT_KEY};
+})();
+</script>
+
+
   
   <script type="module">var A0=Object.create;var{getPrototypeOf:n0,defineProperty:ju,getOwnPropertyNames:e0}=Object;var t0=Object.prototype.hasOwnProperty;var yn=(A,n,e)=>{e=A!=null?A0(n0(A)):{};let t=n||!A||!A.__esModule?ju(e,"default",{value:A,enumerable:!0}):e;for(let r of e0(A))if(!t0.call(t,r))ju(t,r,{get:()=>A[r],enumerable:!0});return t};var Fr=(A,n)=>()=>(n||A((n={exports:{}}).exports,n),n.exports);var r0=(A,n)=>{for(var e in n)ju(A,e,{get:n[e],enumerable:!0,configurable:!0,set:(t)=>n[e]=()=>t})};var l0=(A,n)=>()=>(A&&(n=A(A=0)),n);var le=Fr((m0)=>{var St=Symbol.for("react.element"),u0=Symbol.for("react.portal"),o0=Symbol.for("react.fragment"),i0=Symbol.for("react.strict_mode"),f0=Symbol.for("react.profiler"),c0=Symbol.for("react.provider"),p0=Symbol.for("react.context"),d0=Symbol.for("react.forward_ref"),s0=Symbol.for("react.suspense"),a0=Symbol.for("react.memo"),y0=Symbol.for("react.lazy"),mc=Symbol.iterator;function v0(A){if(A===null||typeof A!=="object")return null;return A=mc&&A[mc]||A["@@iterator"],typeof A==="function"?A:null}var qc={isMounted:function(){return!1},enqueueForceUpdate:function(){},enqueueReplaceState:function(){},enqueueSetState:function(){}},gc=Object.assign,Pc={};function Ce(A,n,e){this.props=A,this.context=n,this.refs=Pc,this.updater=e||qc}Ce.prototype.isReactComponent={};Ce.prototype.setState=function(A,n){if(typeof A!=="object"&&typeof A!=="function"&&A!=null)throw Error("setState(...): takes an object of state variables to update or a function which returns an object of state variables.");this.updater.enqueueSetState(this,A,n,"setState")};Ce.prototype.forceUpdate=function(A){this.updater.enqueueForceUpdate(this,A,"forceUpdate")};function wc(){}wc.prototype=Ce.prototype;function bu(A,n,e){this.props=A,this.context=n,this.refs=Pc,this.updater=e||qc}var Ao=bu.prototype=new wc;Ao.constructor=bu;gc(Ao,Ce.prototype);Ao.isPureReactComponent=!0;var Xc=Array.isArray,Tc=Object.prototype.hasOwnProperty,no={current:null},Wc={key:!0,ref:!0,__self:!0,__source:!0};function Hc(A,n,e){var t,r={},l=null,u=null;if(n!=null)for(t in n.ref!==void 0&&(u=n.ref),n.key!==void 0&&(l=""+n.key),n)Tc.call(n,t)&&!Wc.hasOwnProperty(t)&&(r[t]=n[t]);var i=arguments.length-2;if(i===1)r.children=e;else if(1<i){for(var c=Array(i),s=0;s<i;s++)c[s]=arguments[s+2];r.children=c}if(A&&A.defaultProps)for(t in i=A.defaultProps,i)r[t]===void 0&&(r[t]=i[t]);return{$$typeof:St,type:A,key:l,ref:u,props:r,_owner:no.current}}function h0(A,n){return{$$typeof:St,type:A.type,key:n,ref:A.ref,props:A.props,_owner:A._owner}}function eo(A){return typeof A==="object"&&A!==null&&A.$$typeof===St}function z0(A){var n={"=":"=0",":":"=2"};return"$"+A.replace(/[=:]/g,function(e){return n[e]})}var Sc=/\/+/g;function $u(A,n){return typeof A==="object"&&A!==null&&A.key!=null?z0(""+A.key):n.toString(36)}function Qr(A,n,e,t,r){var l=typeof A;if(l==="undefined"||l==="boolean")A=null;var u=!1;if(A===null)u=!0;else switch(l){case"string":case"number":u=!0;break;case"object":switch(A.$$typeof){case St:case u0:u=!0}}if(u)return u=A,r=r(u),A=t===""?"."+$u(u,0):t,Xc(r)?(e="",A!=null&&(e=A.replace(Sc,"$&/")+"/"),Qr(r,n,e,"",function(s){return s})):r!=null&&(eo(r)&&(r=h0(r,e+(!r.key||u&&u.key===r.key?"":(""+r.key).replace(Sc,"$&/")+"/")+A)),n.push(r)),1;if(u=0,t=t===""?".":t+":",Xc(A))for(var i=0;i<A.length;i++){l=A[i];var c=t+$u(l,i);u+=Qr(l,n,e,c,r)}else if(c=v0(A),typeof c==="function")for(A=c.call(A),i=0;!(l=A.next()).done;)l=l.value,c=t+$u(l,i++),u+=Qr(l,n,e,c,r);else if(l==="object")throw n=String(A),Error("Objects are not valid as a React child (found: "+(n==="[object Object]"?"object with keys {"+Object.keys(A).join(", ")+"}":n)+"). If you meant to render a collection of children, use an array instead.");return u}function Yr(A,n,e){if(A==null)return A;var t=[],r=0;return Qr(A,t,"","",function(l){return n.call(e,l,r++)}),t}function N0(A){if(A._status===-1){var n=A._result;n=n(),n.then(function(e){if(A._status===0||A._status===-1)A._status=1,A._result=e},function(e){if(A._status===0||A._status===-1)A._status=2,A._result=e}),A._status===-1&&(A._status=0,A._result=n)}if(A._status===1)return A._result.default;throw A._result}var qA={current:null},Jr={transition:null},V0={ReactCurrentDispatcher:qA,ReactCurrentBatchConfig:Jr,ReactCurrentOwner:no};function Ec(){throw Error("act(...) is not supported in production builds of React.")}m0.Children={map:Yr,forEach:function(A,n,e){Yr(A,function(){n.apply(this,arguments)},e)},count:function(A){var n=0;return Yr(A,function(){n++}),n},toArray:function(A){return Yr(A,function(n){return n})||[]},only:function(A){if(!eo(A))throw Error("React.Children.only expected to receive a single React element child.");return A}};m0.Component=Ce;m0.Fragment=o0;m0.Profiler=f0;m0.PureComponent=bu;m0.StrictMode=i0;m0.Suspense=s0;m0.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED=V0;m0.act=Ec;m0.cloneElement=function(A,n,e){if(A===null||A===void 0)throw Error("React.cloneElement(...): The argument must be a React element, but you passed "+A+".");var t=gc({},A.props),r=A.key,l=A.ref,u=A._owner;if(n!=null){if(n.ref!==void 0&&(l=n.ref,u=no.current),n.key!==void 0&&(r=""+n.key),A.type&&A.type.defaultProps)var i=A.type.defaultProps;for(c in n)Tc.call(n,c)&&!Wc.hasOwnProperty(c)&&(t[c]=n[c]===void 0&&i!==void 0?i[c]:n[c])}var c=arguments.length-2;if(c===1)t.children=e;else if(1<c){i=Array(c);for(var s=0;s<c;s++)i[s]=arguments[s+2];t.children=i}return{$$typeof:St,type:A.type,key:r,ref:l,props:t,_owner:u}};m0.createContext=function(A){return A={$$typeof:p0,_currentValue:A,_currentValue2:A,_threadCount:0,Provider:null,Consumer:null,_defaultValue:null,_globalName:null},A.Provider={$$typeof:c0,_context:A},A.Consumer=A};m0.createElement=Hc;m0.createFactory=function(A){var n=Hc.bind(null,A);return n.type=A,n};m0.createRef=function(){return{current:null}};m0.forwardRef=function(A){return{$$typeof:d0,render:A}};m0.isValidElement=eo;m0.lazy=function(A){return{$$typeof:y0,_payload:{_status:-1,_result:A},_init:N0}};m0.memo=function(A,n){return{$$typeof:a0,type:A,compare:n===void 0?null:n}};m0.startTransition=function(A){var n=Jr.transition;Jr.transition={};try{A()}finally{Jr.transition=n}};m0.unstable_act=Ec;m0.useCallback=function(A,n){return qA.current.useCallback(A,n)};m0.useContext=function(A){return qA.current.useContext(A)};m0.useDebugValue=function(){};m0.useDeferredValue=function(A){return qA.current.useDeferredValue(A)};m0.useEffect=function(A,n){return qA.current.useEffect(A,n)};m0.useId=function(){return qA.current.useId()};m0.useImperativeHandle=function(A,n,e){return qA.current.useImperativeHandle(A,n,e)};m0.useInsertionEffect=function(A,n){return qA.current.useInsertionEffect(A,n)};m0.useLayoutEffect=function(A,n){return qA.current.useLayoutEffect(A,n)};m0.useMemo=function(A,n){return qA.current.useMemo(A,n)};m0.useReducer=function(A,n,e){return qA.current.useReducer(A,n,e)};m0.useRef=function(A){return qA.current.useRef(A)};m0.useState=function(A){return qA.current.useState(A)};m0.useSyncExternalStore=function(A,n,e){return qA.current.useSyncExternalStore(A,n,e)};m0.useTransition=function(){return qA.current.useTransition()};m0.version="18.3.1"});var Kc=Fr((la)=>{function ro(A,n){var e=A.length;A.push(n);A:for(;0<e;){var t=e-1>>>1,r=A[t];if(0<Ir(r,n))A[t]=n,A[e]=r,e=t;else break A}}function IA(A){return A.length===0?null:A[0]}function br(A){if(A.length===0)return null;var n=A[0],e=A.pop();if(e!==n){A[0]=e;A:for(var t=0,r=A.length,l=r>>>1;t<l;){var u=2*(t+1)-1,i=A[u],c=u+1,s=A[c];if(0>Ir(i,e))c<r&&0>Ir(s,i)?(A[t]=s,A[c]=e,t=c):(A[t]=i,A[u]=e,t=u);else if(c<r&&0>Ir(s,e))A[t]=s,A[c]=e,t=c;else break A}}return n}function Ir(A,n){var e=A.sortIndex-n.sortIndex;return e!==0?e:A.id-n.id}if(typeof performance==="object"&&typeof performance.now==="function")lo=performance,la.unstable_now=function(){return lo.now()};else _r=Date,uo=_r.now(),la.unstable_now=function(){return _r.now()-uo};var lo,_r,uo,ln=[],Hn=[],ra=1,RA=null,vA=3,Al=!1,ue=!1,gt=!1,Uc=typeof setTimeout==="function"?setTimeout:null,kc=typeof clearTimeout==="function"?clearTimeout:null,Oc=typeof setImmediate<"u"?setImmediate:null;typeof navigator<"u"&&navigator.scheduling!==void 0&&navigator.scheduling.isInputPending!==void 0&&navigator.scheduling.isInputPending.bind(navigator.scheduling);function oo(A){for(var n=IA(Hn);n!==null;){if(n.callback===null)br(Hn);else if(n.startTime<=A)br(Hn),n.sortIndex=n.expirationTime,ro(ln,n);else break;n=IA(Hn)}}function fo(A){if(gt=!1,oo(A),!ue)if(IA(ln)!==null)ue=!0,po(co);else{var n=IA(Hn);n!==null&&so(fo,n.startTime-A)}}function co(A,n){ue=!1,gt&&(gt=!1,kc(Pt),Pt=-1),Al=!0;var e=vA;try{oo(n);for(RA=IA(ln);RA!==null&&(!(RA.expirationTime>n)||A&&!Mc());){var t=RA.callback;if(typeof t==="function"){RA.callback=null,vA=RA.priorityLevel;var r=t(RA.expirationTime<=n);n=la.unstable_now(),typeof r==="function"?RA.callback=r:RA===IA(ln)&&br(ln),oo(n)}else br(ln);RA=IA(ln)}if(RA!==null)var l=!0;else{var u=IA(Hn);u!==null&&so(fo,u.startTime-n),l=!1}return l}finally{RA=null,vA=e,Al=!1}}var nl=!1,jr=null,Pt=-1,Cc=5,Lc=-1;function Mc(){return la.unstable_now()-Lc<Cc?!1:!0}function to(){if(jr!==null){var A=la.unstable_now();Lc=A;var n=!0;try{n=jr(!0,A)}finally{n?qt():(nl=!1,jr=null)}}else nl=!1}var qt;if(typeof Oc==="function")qt=function(){Oc(to)};else if(typeof MessageChannel<"u")$r=new MessageChannel,io=$r.port2,$r.port1.onmessage=to,qt=function(){io.postMessage(null)};else qt=function(){Uc(to,0)};var $r,io;function po(A){jr=A,nl||(nl=!0,qt())}function so(A,n){Pt=Uc(function(){A(la.unstable_now())},n)}la.unstable_IdlePriority=5;la.unstable_ImmediatePriority=1;la.unstable_LowPriority=4;la.unstable_NormalPriority=3;la.unstable_Profiling=null;la.unstable_UserBlockingPriority=2;la.unstable_cancelCallback=function(A){A.callback=null};la.unstable_continueExecution=function(){ue||Al||(ue=!0,po(co))};la.unstable_forceFrameRate=function(A){0>A||125<A?console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"):Cc=0<A?Math.floor(1000/A):5};la.unstable_getCurrentPriorityLevel=function(){return vA};la.unstable_getFirstCallbackNode=function(){return IA(ln)};la.unstable_next=function(A){switch(vA){case 1:case 2:case 3:var n=3;break;default:n=vA}var e=vA;vA=n;try{return A()}finally{vA=e}};la.unstable_pauseExecution=function(){};la.unstable_requestPaint=function(){};la.unstable_runWithPriority=function(A,n){switch(A){case 1:case 2:case 3:case 4:case 5:break;default:A=3}var e=vA;vA=A;try{return n()}finally{vA=e}};la.unstable_scheduleCallback=function(A,n,e){var t=la.unstable_now();switch(typeof e==="object"&&e!==null?(e=e.delay,e=typeof e==="number"&&0<e?t+e:t):e=t,A){case 1:var r=-1;break;case 2:r=250;break;case 5:r=1073741823;break;case 4:r=1e4;break;default:r=5000}return r=e+r,A={id:ra++,callback:n,priorityLevel:A,startTime:e,expirationTime:r,sortIndex:-1},e>t?(A.sortIndex=e,ro(Hn,A),IA(ln)===null&&A===IA(Hn)&&(gt?(kc(Pt),Pt=-1):gt=!0,so(fo,e-t))):(A.sortIndex=r,ro(ln,A),ue||Al||(ue=!0,po(co))),A};la.unstable_shouldYield=Mc;la.unstable_wrapCallback=function(A){var n=vA;return function(){var e=vA;vA=n;try{return A.apply(this,arguments)}finally{vA=e}}}});var Vf={};r0(Vf,{version:()=>$s,unstable_renderSubtreeIntoContainer:()=>js,unstable_batchedUpdates:()=>_s,unmountComponentAtNode:()=>Is,render:()=>Js,hydrateRoot:()=>Qs,hydrate:()=>Ys,flushSync:()=>Fs,findDOMNode:()=>Ds,createRoot:()=>Bs,createPortal:()=>xs,__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED:()=>Gs});function m(A){for(var n="https://reactjs.org/docs/error-decoder.html?invariant="+A,e=1;e<arguments.length;e++)n+="&args[]="+encodeURIComponent(arguments[e]);return"Minified React error #"+A+"; visit "+n+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function Ve(A,n){tt(A,n),tt(A+"Capture",n)}function tt(A,n){jt[A]=n;for(A=0;A<n.length;A++)Dp.add(n[A])}function ga(A){if(Co.call(Rc,A))return!0;if(Co.call(Zc,A))return!1;if(qa.test(A))return Rc[A]=!0;return Zc[A]=!0,!1}function Pa(A,n,e,t){if(e!==null&&e.type===0)return!1;switch(typeof n){case"function":case"symbol":return!0;case"boolean":if(t)return!1;if(e!==null)return!e.acceptsBooleans;return A=A.toLowerCase().slice(0,5),A!=="data-"&&A!=="aria-";default:return!1}}function wa(A,n,e,t){if(n===null||typeof n>"u"||Pa(A,n,e,t))return!0;if(t)return!1;if(e!==null)switch(e.type){case 3:return!n;case 4:return n===!1;case 5:return isNaN(n);case 6:return isNaN(n)||1>n}return!1}function wA(A,n,e,t,r,l,u){this.acceptsBooleans=n===2||n===3||n===4,this.attributeName=t,this.attributeNamespace=r,this.mustUseProperty=e,this.propertyName=A,this.type=n,this.sanitizeURL=l,this.removeEmptyString=u}function Hi(A){return A[1].toUpperCase()}function Ei(A,n,e,t){var r=yA.hasOwnProperty(n)?yA[n]:null;if(r!==null?r.type!==0:t||!(2<n.length)||n[0]!=="o"&&n[0]!=="O"||n[1]!=="n"&&n[1]!=="N")wa(n,e,r,t)&&(e=null),t||r===null?ga(n)&&(e===null?A.removeAttribute(n):A.setAttribute(n,""+e)):r.mustUseProperty?A[r.propertyName]=e===null?r.type===3?!1:"":e:(n=r.attributeName,t=r.attributeNamespace,e===null?A.removeAttribute(n):(r=r.type,e=r===3||r===4&&e===!0?"":""+e,t?A.setAttributeNS(t,n,e):A.setAttribute(n,e)))}function wt(A){if(A===null||typeof A!=="object")return null;return A=Gc&&A[Gc]||A["@@iterator"],typeof A==="function"?A:null}function kt(A){if(ao===void 0)try{throw Error()}catch(e){var n=e.stack.trim().match(/\n( *(at )?)/);ao=n&&n[1]||""}return`
 `+ao+A}function vo(A,n){if(!A||yo)return"";yo=!0;var e=Error.prepareStackTrace;Error.prepareStackTrace=void 0;try{if(n)if(n=function(){throw Error()},Object.defineProperty(n.prototype,"props",{set:function(){throw Error()}}),typeof Reflect==="object"&&Reflect.construct){try{Reflect.construct(n,[])}catch(s){var t=s}Reflect.construct(A,[],n)}else{try{n.call()}catch(s){t=s}A.call(n.prototype)}else{try{throw Error()}catch(s){t=s}A()}}catch(s){if(s&&t&&typeof s.stack==="string"){for(var r=s.stack.split(`
