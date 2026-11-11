@@ -3101,70 +3101,76 @@ const CINE_AVATAR_NAMES={"Heróis":["Sentinela Solar","Sombra Rubra","Vórtice",
 "Futuristas":["Hacker Pixel","Cyber Ninja","Doutora Neon","Agente Ônix","Tecnomante","Robô Aurora","Engenheiro Fluxo","Pilota Holograma","Sentinela Digital","Cientista Prisma","Ciborgue Eclipse","Operadora Vênus","Mecânico Zero","Agente Quantum","Guardião Chrome"],
 "Criaturas":["Raposa Celeste","Gato Astral","Coruja Mística","Lobo Boreal","Dragão de Jade","Coelho Lunar","Urso Vulcânico","Cervo Encantado","Corvo de Prata","Leão Solar","Tigre Nebuloso","Falcão Azul","Axolote Mágico","Pantera Espectral","Serpente Dourada"]};
 function cineAvatarList(category){
- const themes={
-  "Heróis":{bg:["#172554","#312e81","#7f1d1d"],primary:["#ef4444","#2563eb","#f59e0b","#16a34a"],secondary:["#facc15","#67e8f9","#f9a8d4"],badge:"✦",costume:"hero"},
-  "Fantasia":{bg:["#3b1d5a","#56316d","#173d54"],primary:["#a78bfa","#db8bca","#e0b45c","#55b7a7"],secondary:["#f5d0fe","#fde68a","#bae6fd"],badge:"✧",costume:"magic"},
-  "Espacial":{bg:["#102a43","#183c63","#312e81"],primary:["#38bdf8","#94a3b8","#c084fc","#34d399"],secondary:["#f0abfc","#a5f3fc","#fde68a"],badge:"✦",costume:"space"},
-  "Anime":{bg:["#4c1d3d","#6b214b","#312e81"],primary:["#fb7185","#f97316","#a78bfa","#38bdf8"],secondary:["#fde68a","#fbcfe8","#c4b5fd"],badge:"✧",costume:"anime"},
-  "Monstros":{bg:["#164e3b","#365314","#3f315e"],primary:["#84cc16","#22c55e","#a855f7","#fb923c"],secondary:["#d9f99d","#f0abfc","#fed7aa"],badge:"☻",costume:"monster"},
-  "Aventura":{bg:["#5b3a21","#3f4d2b","#31545a"],primary:["#d69b45","#2c9b83","#d97706","#65a30d"],secondary:["#fde68a","#bae6fd","#fed7aa"],badge:"★",costume:"adventure"},
-  "Futuristas":{bg:["#164e63","#155e75","#312e81"],primary:["#22d3ee","#818cf8","#a3e635","#f472b6"],secondary:["#a5f3fc","#ddd6fe","#d9f99d"],badge:"⌁",costume:"future"},
-  "Criaturas":{bg:["#334155","#43316a","#164e63"],primary:["#a78bfa","#60a5fa","#2dd4bf","#fb7185"],secondary:["#ddd6fe","#bae6fd","#99f6e4"],badge:"❋",costume:"creature"}
- };
- const t=themes[category]||themes["Heróis"];
  const names=CINE_AVATAR_NAMES[category]||[];
- const skins=["#ffdfc4","#f4c7a1","#d99b78","#a96f55","#f0d1b8","#bd8065","#8d5948","#e9b58f","#f8d9bd"];
- const hairs=["#241b2f","#4a2a20","#171c31","#a65e36","#e6bd69","#6f3b86","#d8e2ee","#32263e","#b94f49","#263f38"];
- const hairShapes=[
-  '<path d="M38 72 Q22 18 77 14 Q131 10 122 72 L111 54 Q99 36 80 42 Q58 29 47 57Z"/>',
-  '<path d="M38 70 Q28 22 67 15 Q108 3 124 45 L115 61 Q99 36 83 31 Q61 52 42 50Z"/><path d="M42 53 Q28 85 39 111 L52 105 L54 65Z"/>',
-  '<path d="M36 67 Q23 20 66 12 Q113 1 126 49 L117 62 Q104 42 91 45 L80 28 Q63 51 42 52Z"/><path d="M110 44 Q136 72 117 101 L106 91Z"/>',
-  '<path d="M35 69 Q26 18 76 13 Q126 8 125 63 L112 53 Q97 35 80 43 Q60 34 46 57Z"/><path d="M48 24 Q32 5 50 4 Q64 5 67 19 M91 19 Q103 -1 117 9 Q124 18 110 27Z"/>',
-  '<path d="M38 72 Q24 22 70 13 Q116 3 124 54 L114 66 Q99 46 84 42 Q59 60 44 52Z"/><path d="M43 57 Q17 83 39 108 L51 99Z M112 54 Q143 79 119 108 L108 99Z"/>'
- ];
- const expressions=[
-  '<ellipse cx="64" cy="64" rx="7" ry="10" fill="#fff"/><ellipse cx="96" cy="64" rx="7" ry="10" fill="#fff"/><circle cx="66" cy="66" r="4.5" fill="#27334b"/><circle cx="98" cy="66" r="4.5" fill="#27334b"/><circle cx="67" cy="62" r="2" fill="#fff"/><circle cx="99" cy="62" r="2" fill="#fff"/>',
-  '<path d="M56 62 Q64 53 72 62 M88 62 Q96 53 104 62" fill="none" stroke="#35263a" stroke-width="4" stroke-linecap="round"/><ellipse cx="64" cy="67" rx="5" ry="7" fill="#fff"/><ellipse cx="96" cy="67" rx="5" ry="7" fill="#fff"/><circle cx="65" cy="68" r="3.5" fill="#26334b"/><circle cx="97" cy="68" r="3.5" fill="#26334b"/>',
-  '<ellipse cx="64" cy="66" rx="8" ry="9" fill="#fff"/><ellipse cx="96" cy="66" rx="8" ry="9" fill="#fff"/><ellipse cx="66" cy="67" rx="4" ry="6" fill="#513a64"/><ellipse cx="98" cy="67" rx="4" ry="6" fill="#513a64"/><circle cx="67" cy="63" r="2" fill="#fff"/><circle cx="99" cy="63" r="2" fill="#fff"/>'
- ];
+ const palettes={
+  "Heróis":["#ef4444","#2563eb","#f59e0b","#16a34a","#a855f7"],
+  "Fantasia":["#a78bfa","#db8bca","#e0b45c","#55b7a7","#f97316"],
+  "Espacial":["#38bdf8","#94a3b8","#c084fc","#34d399","#f472b6"],
+  "Anime":["#fb7185","#f97316","#a78bfa","#38bdf8","#facc15"],
+  "Monstros":["#84cc16","#22c55e","#a855f7","#fb923c","#14b8a6"],
+  "Aventura":["#d69b45","#2c9b83","#d97706","#65a30d","#e879f9"],
+  "Futuristas":["#22d3ee","#818cf8","#a3e635","#f472b6","#f59e0b"],
+  "Criaturas":["#a78bfa","#60a5fa","#2dd4bf","#fb7185","#facc15"]
+ };
+ const skins=["#ffdfc4","#f4c7a1","#d99b78","#a96f55","#f0d1b8","#bd8065","#8d5948","#e9b58f","#f8d9bd","#e6ad86"];
+ const hairs=["#241b2f","#4a2a20","#171c31","#a65e36","#e6bd69","#6f3b86","#d8e2ee","#32263e","#b94f49","#263f38","#f0f0f0"];
+ const styles=["shonen","whimsical","ninja","comic","chibi","creature"];
+ const categoryIndex=Object.keys(palettes).indexOf(category);
  return names.map((name,i)=>{
-  const bg=t.bg[i%t.bg.length],skin=skins[(i*2+Math.floor(i/3))%skins.length],hair=hairs[(i*3+Math.floor(i/2))%hairs.length];
-  const outfit=t.primary[i%t.primary.length],accent=t.secondary[(i*2)%t.secondary.length];
-  const shape=i%5,expr=i%3, creature=category==="Monstros"||category==="Criaturas";
-  const ear=(category==="Monstros"||category==="Criaturas")
-   ? (i%3===0?'<path d="M48 49 L27 19 Q52 22 59 43 M112 49 L133 19 Q108 22 101 43" fill="'+outfit+'" stroke="#29233a" stroke-width="4" stroke-linejoin="round"/>'
-   : i%3===1?'<circle cx="43" cy="77" r="13" fill="'+skin+'" stroke="#29233a" stroke-width="3"/><circle cx="117" cy="77" r="13" fill="'+skin+'" stroke="#29233a" stroke-width="3"/>'
-   : '<path d="M50 49 Q27 32 32 11 Q55 15 62 43 M110 49 Q133 32 128 11 Q105 15 98 43" fill="'+accent+'" stroke="#29233a" stroke-width="4"/>')
-   : '<path d="M43 73 Q27 67 31 83 Q34 95 48 91 M117 73 Q133 67 129 83 Q126 95 112 91" fill="'+skin+'" stroke="#352b3d" stroke-width="3"/>';
-  const head=creature&&i%4===0
-   ? '<path d="M80 27 Q121 27 120 70 Q119 113 80 115 Q41 113 40 70 Q39 27 80 27Z"'
-   : '<path d="'+(shape===0?'M80 25 Q119 25 119 69 Q119 111 80 112 Q41 111 41 69 Q41 25 80 25Z':shape===1?'M80 25 Q116 25 121 65 Q124 108 80 114 Q36 108 39 65 Q44 25 80 25Z':'M80 23 Q124 23 119 73 Q115 111 80 112 Q45 111 41 73 Q36 23 80 23Z')+'"';
-  const mouth=i%4===0?'<path d="M70 85 Q80 98 90 85" fill="none" stroke="#a34f61" stroke-width="3.5" stroke-linecap="round"/>':i%4===1?'<path d="M70 85 Q80 91 90 85" fill="none" stroke="#a34f61" stroke-width="3" stroke-linecap="round"/>':'<ellipse cx="80" cy="87" rx="5" ry="4" fill="#a34f61"/>';
-  const blush='<ellipse cx="54" cy="79" rx="9" ry="4" fill="#f78da7" opacity=".48"/><ellipse cx="106" cy="79" rx="9" ry="4" fill="#f78da7" opacity=".48"/>';
-  let costume='';
-  if(category==="Heróis") costume='<path d="M42 123 L22 167 L47 176 L64 136 M118 123 L138 167 L113 176 L96 136" fill="'+accent+'" stroke="#34283f" stroke-width="4"/><path d="M80 132 L91 148 L80 164 L69 148Z" fill="'+accent+'" stroke="#fff" stroke-width="2"/>';
-  else if(category==="Fantasia") costume='<path d="M42 122 Q80 150 118 122 L138 180 H22Z" fill="'+outfit+'" stroke="#34283f" stroke-width="4"/><path d="M80 136 L87 151 L80 166 L73 151Z" fill="'+accent+'"/><circle cx="80" cy="151" r="5" fill="#fff4b8"/>';
-  else if(category==="Espacial") costume='<path d="M40 125 Q80 108 120 125 L135 180 H25Z" fill="#dbeafe" stroke="#253b58" stroke-width="4"/><path d="M48 137 H112 L105 169 H55Z" fill="'+outfit+'"/><circle cx="80" cy="151" r="10" fill="'+accent+'" stroke="#fff" stroke-width="3"/>';
-  else if(category==="Anime") costume='<path d="M42 124 L80 145 L118 124 L133 180 H27Z" fill="'+outfit+'" stroke="#34283f" stroke-width="4"/><path d="M80 144 L93 161 L80 177 L67 161Z" fill="'+accent+'"/>';
-  else if(category==="Monstros"||category==="Criaturas") costume='<path d="M42 123 Q80 141 118 123 L137 180 H23Z" fill="'+outfit+'" stroke="#34283f" stroke-width="4"/><circle cx="56" cy="151" r="7" fill="'+accent+'"/><circle cx="104" cy="151" r="7" fill="'+accent+'"/>';
-  else if(category==="Aventura") costume='<path d="M42 123 L80 145 L118 123 L136 180 H24Z" fill="#b7793e" stroke="#34283f" stroke-width="4"/><path d="M55 137 L105 137 L96 180 H64Z" fill="'+accent+'"/><path d="M48 132 L112 132" stroke="#f5deb3" stroke-width="5"/>';
-  else costume='<path d="M42 123 L80 144 L118 123 L136 180 H24Z" fill="#20384f" stroke="#34283f" stroke-width="4"/><path d="M48 145 H112 V166 H48Z" fill="'+outfit+'" stroke="'+accent+'" stroke-width="3"/><circle cx="80" cy="155" r="7" fill="'+accent+'"/>';
-  const headgear=category==="Espacial"
-   ? '<path d="M35 63 Q33 16 80 16 Q127 16 125 63" fill="none" stroke="#d9f6ff" stroke-width="7"/><path d="M40 60 Q80 42 120 60" fill="none" stroke="#7dd3fc" stroke-width="5"/>'
-   : category==="Futuristas"
-   ? '<path d="M40 51 Q80 19 120 51 L113 64 Q80 43 47 64Z" fill="#102a3d" stroke="#67e8f9" stroke-width="3"/><path d="M51 54 H109" stroke="#a5f3fc" stroke-width="4"/>'
-   : category==="Aventura"
-   ? '<path d="M32 49 Q80 12 128 49 L120 59 H40Z" fill="#b7793e" stroke="#34283f" stroke-width="4"/><path d="M25 57 Q80 46 135 57" stroke="#f1d09a" stroke-width="7" stroke-linecap="round"/>'
-   : category==="Fantasia"
-   ? '<path d="M48 41 L58 10 L77 31 L98 5 L111 43Z" fill="'+accent+'" stroke="#34283f" stroke-width="3"/>'
-   : category==="Anime"&&i%2===0
-   ? '<path d="M39 51 L49 18 L68 37 L87 8 L103 35 L122 18 L119 58Z" fill="'+hair+'" stroke="#34283f" stroke-width="3"/>'
-   : '';
-  const creatureEyes=(category==="Monstros"||category==="Criaturas")&&i%4===2
-   ? '<ellipse cx="62" cy="66" rx="10" ry="12" fill="#fff"/><ellipse cx="98" cy="66" rx="10" ry="12" fill="#fff"/><circle cx="64" cy="68" r="5" fill="#172033"/><circle cx="100" cy="68" r="5" fill="#172033"/><circle cx="65" cy="63" r="2.5" fill="#fff"/><circle cx="101" cy="63" r="2.5" fill="#fff"/>'
-   : expressions[expr];
-  const extras=i%4===0?'<circle cx="130" cy="33" r="7" fill="'+accent+'"/><path d="M130 21 V13 M142 33 H150" stroke="#fff" stroke-width="2" stroke-linecap="round"/>':i%4===1?'<path d="M26 105 Q14 92 23 82" fill="none" stroke="'+accent+'" stroke-width="5" stroke-linecap="round"/>':i%4===2?'<path d="M128 105 Q146 92 137 82" fill="none" stroke="'+accent+'" stroke-width="5" stroke-linecap="round"/>':'<path d="M23 35 L28 27 L33 35 L41 40 L33 45 L28 53 L23 45 L15 40Z" fill="'+accent+'"/>';
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 190"><defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+bg+'"/><stop offset="1" stop-color="#15172c"/></linearGradient><linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+outfit+'"/><stop offset="1" stop-color="'+accent+'"/></linearGradient></defs><rect width="160" height="190" rx="24" fill="url(#b)"/><circle cx="80" cy="80" r="66" fill="none" stroke="#fff" stroke-opacity=".15" stroke-width="2"/>'+extras+'<path d="M18 190 Q20 126 80 119 Q140 126 142 190Z" fill="url(#shirt)" stroke="#34283f" stroke-width="4"/>'+costume+'<path d="M67 104 H93 V132 Q80 143 67 132Z" fill="'+skin+'" stroke="#352b3d" stroke-width="3"/>'+ear+head+' fill="'+skin+'" stroke="#352b3d" stroke-width="4" stroke-linejoin="round"/>'+hairShapes[(i+Math.floor(i/5))%hairShapes.length]+' fill="'+hair+'" stroke="#34283f" stroke-width="3" stroke-linejoin="round"/>'+headgear+creatureEyes+blush+mouth+'<path d="M74 75 Q80 79 86 75" fill="none" stroke="#b87972" stroke-width="2" stroke-linecap="round"/><path d="M29 181 Q80 165 131 181" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3"/><circle cx="80" cy="177" r="3" fill="'+accent+'"/></svg>';
+  const style=styles[(i*3+Math.max(0,categoryIndex)*2)%styles.length];
+  const seed=i+Math.max(0,categoryIndex)*17;
+  const color=palettes[category]||palettes.Heróis;
+  const main=color[seed%color.length],accent=color[(seed+2)%color.length];
+  const skin=skins[(seed*3)%skins.length],hair=hairs[(seed*7+2)%hairs.length];
+  const bg=["#17152e","#263b62","#432447","#183b3a","#53351f","#25304a"][(seed+styles.indexOf(style))%6];
+  const stroke=style==="whimsical"?"#30264a":style==="shonen"?"#17152b":"#29233a";
+  let head="",hairShape="",eyes="",body="",accessory="",extra="";
+  if(style==="shonen"){
+   head='<path d="M80 28 Q119 25 116 75 L108 108 Q80 132 52 108 L44 74 Q40 28 80 28Z" />';
+   hairShape='<path d="M42 66 L28 27 L53 42 L58 8 L78 35 L98 5 L105 39 L132 22 L117 70 L105 53 L91 65 L78 48 L62 67 L50 53Z"/>';
+   eyes='<path d="M52 69 L72 63 L72 78 L57 81Z M88 63 L108 69 L103 81 L88 78Z" fill="#fff"/><path d="M59 69 L69 68 L68 78 L60 78Z M91 68 L101 69 L100 78 L92 78Z" fill="#1b2340"/><path d="M49 61 L73 57 M87 57 L111 61" stroke="'+stroke+'" stroke-width="5"/>';
+   body='<path d="M17 190 Q19 128 80 121 Q141 128 143 190Z" fill="'+main+'"/><path d="M49 135 L80 154 L111 135 L101 190 H59Z" fill="'+accent+'"/>';
+   accessory='<path d="M39 49 Q80 31 121 49 L115 61 Q80 48 45 61Z" fill="#64748b" stroke="'+stroke+'" stroke-width="4"/><path d="M67 48 L93 59 M93 48 L67 59" stroke="#dbeafe" stroke-width="3"/>';
+   extra='<path d="M20 50 L31 42 L26 57 M136 105 L146 96 L140 115" stroke="#fff" stroke-width="3" stroke-linecap="round"/>';
+  }else if(style==="whimsical"){
+   head='<path d="M80 31 C111 22 125 53 116 88 C111 116 91 120 75 114 C47 119 35 93 43 61 C48 39 62 31 80 31Z"/>';
+   hairShape='<path d="M40 72 C20 41 49 14 72 28 C86 5 119 19 120 49 C139 54 128 83 114 82 L108 56 C92 69 79 48 68 58 C58 70 51 54 40 72Z"/>';
+   eyes='<ellipse cx="64" cy="75" rx="10" ry="13" fill="#fff"/><ellipse cx="97" cy="73" rx="8" ry="11" fill="#fff"/><circle cx="66" cy="78" r="5" fill="#25334d"/><circle cx="98" cy="76" r="4" fill="#25334d"/><circle cx="68" cy="73" r="2.5" fill="#fff"/><circle cx="100" cy="72" r="2" fill="#fff"/>';
+   body='<path d="M16 190 Q26 128 80 126 Q134 128 144 190Z" fill="'+main+'"/><path d="M53 139 Q80 162 107 139 L117 190 H43Z" fill="'+accent+'"/>';
+   accessory='<circle cx="42" cy="91" r="11" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/><circle cx="119" cy="96" r="8" fill="#facc15" stroke="'+stroke+'" stroke-width="3"/>';
+   extra='<path d="M22 32 Q35 16 46 31 M125 25 Q139 14 145 30" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>';
+  }else if(style==="ninja"){
+   head='<path d="M80 30 Q113 30 112 68 L106 104 L80 120 L54 104 L48 68 Q47 30 80 30Z"/>';
+   hairShape='<path d="M43 67 Q31 26 72 20 Q111 10 124 54 L113 70 L104 52 L91 64 L79 45 L63 66 L51 54Z"/>';
+   eyes='<path d="M53 76 Q64 62 76 76 Q64 86 53 76Z M84 76 Q96 62 108 76 Q96 86 84 76Z" fill="#fff"/><circle cx="65" cy="76" r="4" fill="#18243d"/><circle cx="96" cy="76" r="4" fill="#18243d"/><path d="M49 66 L76 70 M84 70 L112 66" stroke="'+stroke+'" stroke-width="5"/>';
+   body='<path d="M14 190 Q25 125 80 125 Q135 125 146 190Z" fill="#20243b"/><path d="M38 139 L80 155 L122 139 L111 190 H49Z" fill="'+main+'"/><path d="M50 147 L110 147" stroke="'+accent+'" stroke-width="8"/>';
+   accessory='<path d="M37 49 Q80 31 123 49 L117 65 Q80 52 43 65Z" fill="#374151" stroke="'+stroke+'" stroke-width="4"/><rect x="64" y="48" width="32" height="12" rx="3" fill="#cbd5e1"/><path d="M70 54 L90 54" stroke="#334155" stroke-width="3"/>';
+   extra='<path d="M115 57 Q145 48 145 75 L130 82" fill="none" stroke="'+accent+'" stroke-width="5"/>';
+  }else if(style==="comic"){
+   head='<path d="M80 25 Q120 25 117 72 L108 106 L80 120 L52 106 L43 72 Q40 25 80 25Z"/>';
+   hairShape='<path d="M42 69 Q35 16 80 17 Q127 16 119 69 L105 51 L93 61 L80 44 L65 62 L51 51Z"/>';
+   eyes='<path d="M49 67 L75 63 L72 81 L52 82Z M85 63 L111 67 L108 82 L88 81Z" fill="#fff" stroke="'+stroke+'" stroke-width="3"/><circle cx="63" cy="73" r="5" fill="#172033"/><circle cx="97" cy="73" r="5" fill="#172033"/>';
+   body='<path d="M12 190 Q20 125 80 120 Q140 125 148 190Z" fill="'+main+'" stroke="'+stroke+'" stroke-width="5"/><path d="M80 133 L97 151 L80 177 L63 151Z" fill="'+accent+'" stroke="#fff" stroke-width="3"/>';
+   accessory='<path d="M43 66 Q80 48 117 66 L111 84 Q80 72 49 84Z" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/>';
+   extra='<path d="M19 28 L29 35 L22 45 L35 51 M141 27 L131 37 L140 45 L127 52" fill="none" stroke="#fff" stroke-width="3"/>';
+  }else if(style==="chibi"){
+   head='<path d="M80 23 C119 23 128 57 117 92 C108 122 52 122 43 92 C32 57 41 23 80 23Z"/>';
+   hairShape='<path d="M37 70 Q28 16 80 15 Q132 16 123 70 L109 52 L96 62 L80 43 L64 62 L50 52Z"/>';
+   eyes='<ellipse cx="63" cy="73" rx="12" ry="15" fill="#fff"/><ellipse cx="97" cy="73" rx="12" ry="15" fill="#fff"/><ellipse cx="65" cy="77" rx="6" ry="8" fill="#26334b"/><ellipse cx="99" cy="77" rx="6" ry="8" fill="#26334b"/><circle cx="67" cy="71" r="3" fill="#fff"/><circle cx="101" cy="71" r="3" fill="#fff"/>';
+   body='<path d="M28 190 Q30 130 80 130 Q130 130 132 190Z" fill="'+main+'"/><path d="M57 142 L80 157 L103 142 L111 190 H49Z" fill="'+accent+'"/>';
+   accessory='<circle cx="45" cy="105" r="8" fill="#f9a8d4"/><circle cx="115" cy="105" r="8" fill="#f9a8d4"/><path d="M64 98 Q80 108 96 98" fill="none" stroke="#9f5366" stroke-width="4" stroke-linecap="round"/>';
+   extra='<path d="M19 52 L27 43 L35 52 L27 61Z M125 42 L133 33 L141 42 L133 51Z" fill="'+accent+'"/>';
+  }else{
+   head='<path d="M80 31 Q116 27 117 72 Q119 113 80 116 Q41 113 43 72 Q44 27 80 31Z"/>';
+   hairShape='<path d="M43 69 Q25 25 68 18 Q107 5 123 49 L113 73 L104 56 L89 67 L78 48 L61 68 L51 55Z"/>';
+   eyes='<ellipse cx="64" cy="73" rx="9" ry="11" fill="#fff"/><ellipse cx="96" cy="73" rx="9" ry="11" fill="#fff"/><ellipse cx="66" cy="75" rx="5" ry="7" fill="#25334d"/><ellipse cx="98" cy="75" rx="5" ry="7" fill="#25334d"/>';
+   body='<path d="M15 190 Q25 129 80 126 Q135 129 145 190Z" fill="'+main+'"/><path d="M47 145 Q80 161 113 145 L122 190 H38Z" fill="'+accent+'"/>';
+   accessory='<path d="M48 41 Q30 12 22 37 Q27 57 49 59 M112 41 Q130 12 138 37 Q133 57 111 59" fill="'+accent+'" stroke="'+stroke+'" stroke-width="4"/>';
+   extra='<circle cx="32" cy="115" r="7" fill="'+accent+'"/><circle cx="128" cy="115" r="7" fill="'+accent+'"/>';
+  }
+  const mouth=style==="shonen"||style==="ninja"?'<path d="M69 96 Q80 102 91 96" fill="none" stroke="#8f4357" stroke-width="3" stroke-linecap="round"/>':style==="whimsical"?'<path d="M69 94 Q80 108 93 93" fill="none" stroke="#8f4357" stroke-width="4" stroke-linecap="round"/>':'<ellipse cx="80" cy="96" rx="'+(seed%2?5:8)+'" ry="5" fill="#8f4357"/>';
+  const neck='<path d="M68 105 H92 V132 Q80 143 68 132Z" fill="'+skin+'" stroke="'+stroke+'" stroke-width="3"/>';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 190"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+bg+'"/><stop offset="1" stop-color="#111827"/></linearGradient><linearGradient id="cloth" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+main+'"/><stop offset="1" stop-color="'+accent+'"/></linearGradient></defs><rect width="160" height="190" rx="'+(style==="whimsical"?"12":"23")+'" fill="url(#bg)"/><circle cx="80" cy="78" r="67" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>'+extra+body+neck+'<g fill="'+skin+'" stroke="'+stroke+'" stroke-width="'+(style==="whimsical"?"3":"4")+'" stroke-linejoin="round">'+head+'</g><g fill="'+hair+'" stroke="'+stroke+'" stroke-width="4" stroke-linejoin="round">'+hairShape+'</g>'+accessory+eyes+'<path d="M54 87 Q64 91 73 87 M87 87 Q96 91 106 87" fill="none" stroke="#e98b9d" stroke-width="3" stroke-linecap="round" opacity=".65"/>'+mouth+'<path d="M18 190 Q80 169 142 190" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="3"/></svg>';
   return {name,url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg)};
  });
 }
