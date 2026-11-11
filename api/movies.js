@@ -113,6 +113,20 @@ export default async function handler(req,res){
       }
       return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze"]});
     }
+    if(action==="personalized_catalog"){
+      const rawGenres=String(q.genres||"").split(",").map(x=>x.trim()).filter(x=>/^\\d+$/.test(x));
+      const genres=[...new Set(rawGenres)].slice(0,6);
+      const pages=new Set();
+      while(pages.size<6) pages.add(1+Math.floor(Math.random()*500));
+      const resultsMap=new Map();
+      await Promise.all([...pages].map(async page=>{
+        const params={language:lang,page:String(page),sort_by:"popularity.desc","vote_count.gte":"30",include_adult:"false"};
+        if(genres.length) params.with_genres=genres.join("|");
+        const {data}=await tmdb("/discover/movie",params);
+        (data.results||[]).forEach(item=>{if(item&&item.id)resultsMap.set(String(item.id),item)});
+      }));
+      return json(res,200,{ok:true,results:[...resultsMap.values()],pagesChecked:[...pages],personalizedBy:genres});
+    }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
       const {data}=await tmdb(`/${type}/${q.id}`,{language:lang, append_to_response:"credits,watch/providers,content_ratings,release_dates"});
