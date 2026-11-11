@@ -73,26 +73,51 @@ export default async function handler(req,res){
       return json(res,200,{ok:true, results:(data.results||[]).filter(x=>x.media_type==="movie"||x.media_type==="tv")});
     }
     if(action==="season"){
-      const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim();
+      const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim(),showName=String(q.name||"").trim();
       if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
-      // Obtém títulos em português e inglês; uma falha em um idioma não descarta o outro.
-      const languages=["pt-BR","en-US"];
-      const responses=await Promise.all(languages.map(async language=>{
-        try{return await tmdb(`/tv/${id}/season/${seasonNumber}`,{language})}
-        catch(error){return {data:{episodes:[]},error:String(error.message||error)}}
-      }));
+      const normalize=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
       const merged=new Map();
-      for(const response of responses){
-        for(const ep of (response.data.episodes||[])){
-          const number=Number(ep.episode_number);
-          if(!Number.isFinite(number))continue;
-          const title=String(ep.name||ep.original_name||"").trim();
-          const previous=merged.get(number)||{episode_number:number,name:""};
-          if(title&&(!previous.name||response===responses[0]))previous.name=title;
-          merged.set(number,previous);
-        }
+      // Fonte primária: TMDB em português e inglês.
+      const tmdbResults=await Promise.all(["pt-BR","en-US"].map(async language=>{
+        try{const result=await tmdb(`/tv/${id}/season/${seasonNumber}`,{language});return result.data.episodes||[]}
+        catch(error){return []}
+      }));
+      tmdbResults.forEach((list,index)=>list.forEach(ep=>{
+        const number=Number(ep.episode_number),title=String(ep.name||ep.original_name||"").trim();
+        if(!Number.isFinite(number))return;
+        const previous=merged.get(number)||{episode_number:number,name:""};
+        if(title&&(!previous.name||index===0))previous.name=title;
+        merged.set(number,previous);
+      }));
+      // Fonte complementar: TVmaze, consultada pela identificação da série e número de temporada/episódio.
+      if(showName){
+        try{
+          const searchUrl="https://api.tvmaze.com/search/shows?q="+encodeURIComponent(showName);
+          const searchResponse=await fetch(searchUrl,{headers:{Accept:"application/json"}});
+          if(searchResponse.ok){
+            const candidates=await searchResponse.json();
+            const exact=(Array.isArray(candidates)?candidates:[]).find(item=>{
+              const show=item&&item.show;
+              return show&&(normalize(show.name)===normalize(showName)||normalize(show.name)===normalize(q.original_name));
+            });
+            const candidate=exact||(Array.isArray(candidates)?candidates[0]:null);
+            if(candidate?.show?.id){
+              const episodesResponse=await fetch("https://api.tvmaze.com/shows/"+candidate.show.id+"/episodes?specials=1",{headers:{Accept:"application/json"}});
+              if(episodesResponse.ok){
+                const episodes=await episodesResponse.json();
+                (Array.isArray(episodes)?episodes:[]).filter(ep=>Number(ep.season)===Number(seasonNumber)).forEach(ep=>{
+                  const number=Number(ep.number),title=String(ep.name||"").trim();
+                  if(!Number.isFinite(number)||!title)return;
+                  const previous=merged.get(number)||{episode_number:number,name:""};
+                  if(!previous.name)previous.name=title;
+                  merged.set(number,previous);
+                });
+              }
+            }
+          }
+        }catch(tvmazeError){console.warn("Cine-CR: TVmaze indisponível para complementar episódios",tvmazeError)}
       }
-      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number)});
+      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze"]});
     }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
