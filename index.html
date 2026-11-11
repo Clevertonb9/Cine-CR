@@ -2892,6 +2892,18 @@ function CineReviews(o){
   }catch(e){console.error("[Cine-CR][reviews-save]",e);alert("Não foi possível publicar. Confira se as novas regras do Firestore já foram publicadas.")}
   finally{setBusy(false)}
  };
+ const deleteReview=async()=>{
+  if(!currentUser||!db)return;
+  if(!confirm("Tem certeza que deseja apagar sua avaliação deste título?"))return;
+  setBusy(true);
+  try{
+   await db.collection("publicReviews").doc(mediaKey).collection("reviews").doc(currentUser.uid).delete();
+   setItems(prev=>prev.filter(x=>x.uid!==currentUser.uid));
+   setRating(5);setComment("");
+   alert("Sua avaliação foi apagada.");
+  }catch(e){console.error("[Cine-CR][reviews-delete]",e);alert("Não foi possível apagar a avaliação. Confira as regras do Firestore.")}
+  finally{setBusy(false)}
+ };
  const avg=items.length?(items.reduce((n,x)=>n+(Number(x.rating)||0),0)/items.length).toFixed(1):"—";
  return d("section",{className:"mt-8 border-t border-white/10 pt-6",children:[
   d("div",{className:"flex flex-wrap items-center justify-between gap-3",children:[
@@ -2900,8 +2912,8 @@ function CineReviews(o){
   ]}),
   d("div",{className:"mt-4 bg-[#1b1b1b] border border-white/10 rounded-2xl p-4",children:[
    f("p",{className:"font-bold text-sm",children:currentUser?"Sua avaliação":"Entre para avaliar este título"}),
-   d("div",{className:"flex items-center gap-1 mt-3",children:[1,2,3,4,5].map(n=>f("button",{type:"button","aria-label":n+" estrelas",onClick:()=>setRating(n),className:"text-3xl "+(n<=rating?"text-[#FACC15]":"text-white/20"),children:"★"},n))}),
-   f("textarea",{value:comment,onChange:e=>setComment(e.target.value.slice(0,500)),maxLength:500,placeholder:"Conte o que achou do filme ou série…",className:"w-full min-h-[92px] mt-3 bg-black/30 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-[#E50914]"}),
+   d("div",{className:"flex items-center gap-1 mt-3",children:[1,2,3,4,5].map(n=>f("button",{type:"button","aria-label":n+" estrelas",onClick:()=>setRating(n),className:"text-3xl transition-transform active:scale-110",style:{color:n<=rating?"#FACC15":"#666666"}, "aria-pressed":n<=rating,children:"★"},n))}),
+   f("textarea",{value:comment,onChange:e=>setComment(e.target.value.slice(0,500)),maxLength:500,placeholder:"Conte o que achou do filme ou série…",className:"w-full min-h-[110px] mt-3 bg-white text-black placeholder:text-gray-500 border border-white/20 rounded-xl p-3 text-sm outline-none focus:border-[#E50914] resize-y",style:{color:"#111111",backgroundColor:"#ffffff",caretColor:"#E50914"}}),
    d("div",{className:"flex items-center justify-between gap-2 mt-2",children:[
     f("span",{className:"text-[11px] text-[#888]",children:comment.length+"/500 caracteres • uma avaliação por conta"}),
     f("button",{disabled:busy||!currentUser,onClick:submit,className:"bg-[#E50914] disabled:opacity-40 px-5 py-2.5 rounded-full text-sm font-bold",children:busy?"Publicando…":"Publicar avaliação"})
@@ -2911,7 +2923,7 @@ function CineReviews(o){
   items.length?d("div",{className:"space-y-3 mt-4",children:items.map(x=>d("article",{key:x.id,className:"bg-[#1b1b1b] border border-white/10 rounded-2xl p-4",children:[
    d("div",{className:"flex items-center justify-between gap-2",children:[f("p",{className:"font-bold text-sm",children:x.displayName||"Cinéfilo"}),f("span",{className:"text-[#FACC15] text-sm font-bold",children:"★ ".repeat(Math.max(1,Math.min(5,Number(x.rating)||1)))})]}),
    f("p",{className:"text-sm text-[#d6d6d6] mt-2 whitespace-pre-wrap break-words",children:x.text||""}),
-   currentUser&&x.uid===currentUser.uid&&f("p",{className:"text-[10px] text-[#E50914] mt-2",children:"Sua avaliação"})
+   currentUser&&x.uid===currentUser.uid&&d("div",{className:"flex items-center justify-between gap-3 mt-3",children:[f("p",{className:"text-[10px] text-[#E50914]",children:"Sua avaliação"}),f("button",{type:"button",disabled:busy,onClick:deleteReview,className:"text-xs font-bold text-red-400 hover:text-red-300 border border-red-500/40 rounded-full px-3 py-1.5 disabled:opacity-40",children:"Apagar comentário"})]})
   ]}))}):
   f("p",{className:"text-sm text-[#888] mt-4 text-center border border-dashed border-white/10 rounded-xl p-5",children:"Ainda não há avaliações. Seja o primeiro a compartilhar sua opinião!"})
  ]});
@@ -2919,24 +2931,71 @@ function CineReviews(o){
 
 /* ===== QUIZ DE CINEMA ===== */
 const CINE_QUIZ_QUESTIONS=[
- {q:"Qual é o nome do reino de Elsa e Anna em Frozen?",a:["Arendelle","Atlântida","Nárnia","Genóvia"],c:0,cat:"Animação"},
- {q:"Quem dirigiu o filme Titanic (1997)?",a:["Steven Spielberg","James Cameron","Ridley Scott","Peter Jackson"],c:1,cat:"Cinema"},
- {q:"Qual é o planeta natal do Superman?",a:["Tatooine","Vulcano","Krypton","Asgard"],c:2,cat:"Heróis"},
- {q:"Em Harry Potter, qual é a casa de Harry?",a:["Sonserina","Corvinal","Lufa-Lufa","Grifinória"],c:3,cat:"Fantasia"},
- {q:"Qual é o nome do brinquedo cowboy de Toy Story?",a:["Buzz","Woody","Rex","Andy"],c:1,cat:"Animação"},
- {q:"Em qual série aparece o Trono de Ferro?",a:["The Witcher","Vikings","Game of Thrones","The Last Kingdom"],c:2,cat:"Séries"},
- {q:"Qual é o alter ego de Batman?",a:["Clark Kent","Bruce Wayne","Peter Parker","Tony Stark"],c:1,cat:"Heróis"},
- {q:"Qual estúdio criou o anime Meu Amigo Totoro?",a:["Studio Ghibli","Madhouse","Toei Animation","Bones"],c:0,cat:"Anime"},
- {q:"Qual é o nome do navio de Jack Sparrow?",a:["Holandês Voador","Endeavour","Pérola Negra","Interceptor"],c:2,cat:"Cinema"},
- {q:"Em Stranger Things, em qual cidade se passa a história?",a:["Riverdale","Hawkins","Sunnydale","Smallville"],c:1,cat:"Séries"},
- {q:"Qual atriz interpreta Hermione nos filmes de Harry Potter?",a:["Emma Stone","Keira Knightley","Emma Watson","Natalie Portman"],c:2,cat:"Cinema"},
- {q:"Qual é o nome do irmão de Mario nos jogos e filmes?",a:["Wario","Toad","Yoshi","Luigi"],c:3,cat:"Animação"}
+ {id:"q01",q:"Qual é o nome do reino de Elsa e Anna em Frozen?",a:["Arendelle","Atlântida","Nárnia","Genóvia"],c:0,cat:"Animação"},
+ {id:"q02",q:"Quem dirigiu o filme Titanic (1997)?",a:["Steven Spielberg","James Cameron","Ridley Scott","Peter Jackson"],c:1,cat:"Cinema"},
+ {id:"q03",q:"Qual é o planeta natal do Superman?",a:["Tatooine","Vulcano","Krypton","Asgard"],c:2,cat:"Heróis"},
+ {id:"q04",q:"Em Harry Potter, qual é a casa de Harry?",a:["Sonserina","Corvinal","Lufa-Lufa","Grifinória"],c:3,cat:"Fantasia"},
+ {id:"q05",q:"Qual é o nome do brinquedo cowboy de Toy Story?",a:["Buzz","Woody","Rex","Andy"],c:1,cat:"Animação"},
+ {id:"q06",q:"Em qual série aparece o Trono de Ferro?",a:["The Witcher","Vikings","Game of Thrones","The Last Kingdom"],c:2,cat:"Séries"},
+ {id:"q07",q:"Qual é o alter ego de Batman?",a:["Clark Kent","Bruce Wayne","Peter Parker","Tony Stark"],c:1,cat:"Heróis"},
+ {id:"q08",q:"Qual estúdio criou o anime Meu Amigo Totoro?",a:["Studio Ghibli","Madhouse","Toei Animation","Bones"],c:0,cat:"Anime"},
+ {id:"q09",q:"Qual é o nome do navio de Jack Sparrow?",a:["Holandês Voador","Endeavour","Pérola Negra","Interceptor"],c:2,cat:"Cinema"},
+ {id:"q10",q:"Em Stranger Things, em qual cidade se passa a história?",a:["Riverdale","Hawkins","Sunnydale","Smallville"],c:1,cat:"Séries"},
+ {id:"q11",q:"Qual atriz interpreta Hermione nos filmes de Harry Potter?",a:["Emma Stone","Keira Knightley","Emma Watson","Natalie Portman"],c:2,cat:"Cinema"},
+ {id:"q12",q:"Qual é o nome do irmão de Mario nos jogos e filmes?",a:["Wario","Toad","Yoshi","Luigi"],c:3,cat:"Animação"},
+ {id:"q13",q:"Quem interpretou o Homem de Ferro no Universo Cinematográfico Marvel?",a:["Chris Evans","Robert Downey Jr.","Chris Hemsworth","Mark Ruffalo"],c:1,cat:"Heróis"},
+ {id:"q14",q:"Qual é o nome da escola de magia de Harry Potter?",a:["Beauxbatons","Durmstrang","Hogwarts","Ilvermorny"],c:2,cat:"Fantasia"},
+ {id:"q15",q:"Em O Rei Leão, qual é o nome do pai de Simba?",a:["Scar","Mufasa","Rafiki","Zazu"],c:1,cat:"Animação"},
+ {id:"q16",q:"Qual é o sobrenome da família protagonista de Os Simpsons?",a:["Griffin","Belcher","Simpson","Hill"],c:2,cat:"Animação"},
+ {id:"q17",q:"Qual atriz vive Katniss Everdeen em Jogos Vorazes?",a:["Shailene Woodley","Jennifer Lawrence","Emma Roberts","Chloë Grace Moretz"],c:1,cat:"Cinema"},
+ {id:"q18",q:"Qual é o nome do planeta onde vive o povo Na'vi em Avatar?",a:["Arrakis","Pandora","Krypton","Endor"],c:1,cat:"Cinema"},
+ {id:"q19",q:"Em The Office (versão dos EUA), qual é o nome do gerente regional no início da série?",a:["Jim Halpert","Dwight Schrute","Michael Scott","Andy Bernard"],c:2,cat:"Séries"},
+ {id:"q20",q:"Qual personagem é conhecido como o bruxo de Hogwarts que derrotou Voldemort?",a:["Neville Longbottom","Harry Potter","Ron Weasley","Draco Malfoy"],c:1,cat:"Fantasia"},
+ {id:"q21",q:"Qual é o nome do vilão principal do primeiro filme Os Vingadores (2012)?",a:["Ultron","Thanos","Loki","Hela"],c:2,cat:"Heróis"},
+ {id:"q22",q:"Qual anime acompanha Monkey D. Luffy em busca do One Piece?",a:["Naruto","Bleach","One Piece","Dragon Ball"],c:2,cat:"Anime"},
+ {id:"q23",q:"Quem é o diretor da trilogia O Senhor dos Anéis?",a:["Peter Jackson","Christopher Nolan","Guillermo del Toro","James Cameron"],c:0,cat:"Cinema"},
+ {id:"q24",q:"Em Friends, qual personagem trabalha como paleontólogo?",a:["Joey Tribbiani","Ross Geller","Chandler Bing","Gunther"],c:1,cat:"Séries"},
+ {id:"q25",q:"Qual é o nome do reino de Wakanda no universo Marvel?",a:["Sokovia","Latveria","Wakanda","Genosha"],c:2,cat:"Heróis"},
+ {id:"q26",q:"Qual personagem de Star Wars é pai de Luke Skywalker?",a:["Obi-Wan Kenobi","Han Solo","Darth Vader","Yoda"],c:2,cat:"Ficção científica"},
+ {id:"q27",q:"Qual é o nome do ogro protagonista da franquia da DreamWorks?",a:["Shrek","Fiona","Burro","Lord Farquaad"],c:0,cat:"Animação"},
+ {id:"q28",q:"Em La Casa de Papel, qual cidade dá nome ao personagem conhecido como Professor?",a:["Lisboa","Madrid","Barcelona","Não é revelada"],c:3,cat:"Séries"},
+ {id:"q29",q:"Qual atriz interpreta Barbie no filme lançado em 2023?",a:["Margot Robbie","Anne Hathaway","Blake Lively","Florence Pugh"],c:0,cat:"Cinema"},
+ {id:"q30",q:"Qual é o nome do protagonista do anime Naruto?",a:["Sasuke Uchiha","Kakashi Hatake","Naruto Uzumaki","Itachi Uchiha"],c:2,cat:"Anime"},
+ {id:"q31",q:"Em Procurando Nemo, que tipo de peixe é Nemo?",a:["Peixe-palhaço","Peixe-cirurgião","Baiacu","Cavalo-marinho"],c:0,cat:"Animação"},
+ {id:"q32",q:"Qual é o nome da nave de Han Solo em Star Wars?",a:["Enterprise","Millennium Falcon","Nostromo","Serenity"],c:1,cat:"Ficção científica"},
+ {id:"q33",q:"Qual série acompanha os irmãos Dean e Sam Winchester?",a:["Fringe","Supernatural","Lucifer","Grimm"],c:1,cat:"Séries"},
+ {id:"q34",q:"Quem é o melhor amigo de Sherlock Holmes nas histórias clássicas?",a:["Inspetor Lestrade","Moriarty","Dr. John Watson","Mycroft Holmes"],c:2,cat:"Mistério"},
+ {id:"q35",q:"Qual é o nome da princesa protagonista de A Princesa e o Sapo?",a:["Ariel","Tiana","Moana","Rapunzel"],c:1,cat:"Animação"},
+ {id:"q36",q:"Em Matrix, qual pílula Neo escolhe?",a:["Azul","Vermelha","Verde","Amarela"],c:1,cat:"Ficção científica"},
+ {id:"q37",q:"Qual é o nome do colégio de Wednesday Addams na série Wandinha?",a:["Riverdale","Nevermore","Hawkins","Sunnydale"],c:1,cat:"Séries"},
+ {id:"q38",q:"Qual ator interpreta Jack Dawson em Titanic (1997)?",a:["Brad Pitt","Matt Damon","Leonardo DiCaprio","Tom Cruise"],c:2,cat:"Cinema"},
+ {id:"q39",q:"Qual é o nome do mestre Jedi verde de Star Wars?",a:["Yoda","Mace Windu","Qui-Gon Jinn","Count Dooku"],c:0,cat:"Ficção científica"},
+ {id:"q40",q:"No anime Dragon Ball, qual é o nome saiyajin de Goku?",a:["Vegeta","Kakarotto","Bardock","Broly"],c:1,cat:"Anime"},
+ {id:"q41",q:"Qual personagem da DC é conhecido como a Mulher-Maravilha?",a:["Diana Prince","Lois Lane","Barbara Gordon","Selina Kyle"],c:0,cat:"Heróis"},
+ {id:"q42",q:"Em Jurassic Park, qual cientista cria o parque de dinossauros?",a:["Alan Grant","Ian Malcolm","John Hammond","Henry Wu"],c:2,cat:"Cinema"},
+ {id:"q43",q:"Qual é o nome do café frequentado pelos personagens de Friends?",a:["Central Perk","MacLaren's","Monk's Café","Luke's Diner"],c:0,cat:"Séries"},
+ {id:"q44",q:"Qual personagem de Toy Story é um patrulheiro espacial?",a:["Woody","Buzz Lightyear","Slinky","Sr. Cabeça de Batata"],c:1,cat:"Animação"},
+ {id:"q45",q:"Qual é o nome do continente fictício onde se passa boa parte de Game of Thrones?",a:["Terra-média","Westeros","Nárnia","Panem"],c:1,cat:"Séries"},
+ {id:"q46",q:"Quem dirige o filme A Origem (Inception)?",a:["Denis Villeneuve","David Fincher","Christopher Nolan","Zack Snyder"],c:2,cat:"Cinema"},
+ {id:"q47",q:"Qual é o nome do protagonista de Demon Slayer?",a:["Zenitsu Agatsuma","Inosuke Hashibira","Tanjiro Kamado","Giyu Tomioka"],c:2,cat:"Anime"},
+ {id:"q48",q:"Em Divertida Mente, qual emoção é representada pela cor azul?",a:["Alegria","Raiva","Tristeza","Medo"],c:2,cat:"Animação"}
 ];
+function cineQuizNewRound(){
+ const key="cinecr_quiz_last_round_v2";
+ let previous=[];
+ try{previous=JSON.parse(localStorage.getItem(key)||"[]")}catch(e){}
+ let pool=CINE_QUIZ_QUESTIONS.filter(q=>!previous.includes(q.id));
+ if(pool.length<10)pool=CINE_QUIZ_QUESTIONS.slice();
+ for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+ const round=pool.slice(0,10);
+ try{localStorage.setItem(key,JSON.stringify(round.map(q=>q.id)))}catch(e){}
+ return round;
+}
 function CineQuizView(){
  const auth=(window.firebase&&firebase.auth)?firebase.auth():null;
  const currentUser=auth?auth.currentUser:null;
  const db=(window.firebase&&firebase.apps&&firebase.apps.length)?firebase.firestore():null;
- const [round,setRound]=S.useState(()=>CINE_QUIZ_QUESTIONS.slice().sort(()=>Math.random()-.5).slice(0,10));
+ const [round,setRound]=S.useState(()=>cineQuizNewRound());
  const [index,setIndex]=S.useState(0),[choice,setChoice]=S.useState(null),[score,setScore]=S.useState(0),[done,setDone]=S.useState(false),[busy,setBusy]=S.useState(false),[ranking,setRanking]=S.useState([]);
  const q=round[index];
  const loadRanking=async()=>{
@@ -2960,7 +3019,7 @@ function CineQuizView(){
   const nextScore=score+(choice===q.c?1:0);setScore(nextScore);
   if(index===round.length-1){finish(nextScore)}else{setIndex(index+1);setChoice(null)}
  };
- const restart=()=>{setRound(CINE_QUIZ_QUESTIONS.slice().sort(()=>Math.random()-.5).slice(0,10));setIndex(0);setChoice(null);setScore(0);setDone(false)};
+ const restart=()=>{setRound(cineQuizNewRound());setIndex(0);setChoice(null);setScore(0);setDone(false)};
  return d("section",{className:"max-w-[900px] mx-auto mt-5",children:[
   d("div",{className:"rounded-[24px] border border-white/10 overflow-hidden",children:[
    d("div",{className:"bg-gradient-to-r from-[#27070a] via-[#5b090f] to-[#160607] p-6 sm:p-8",children:[
