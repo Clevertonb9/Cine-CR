@@ -114,9 +114,9 @@ export default async function handler(req,res){
       return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze"]});
     }
     if(action==="personalized_catalog"){
-      const rawGenres=String(q.genres||"").split(",").map(x=>x.trim()).filter(x=>/^\\d+$/.test(x));
+      const rawGenres=String(q.genres||"").split(",").map(x=>x.trim()).filter(x=>/^\d+$/.test(x));
       const genres=[...new Set(rawGenres)].slice(0,6);
-      const ratedIds=String(q.rated||"").split(",").map(x=>x.trim()).filter(x=>/^\\d+$/.test(x)).slice(0,8);
+      const ratedIds=String(q.rated||"").split(",").map(x=>x.trim()).filter(x=>/^\d+$/.test(x)).slice(0,8);
       const ratedGenreIds=new Set();
       await Promise.all(ratedIds.map(async id=>{try{const {data}=await tmdb("/movie/"+id,{language:lang});(data.genres||[]).forEach(g=>{if(g&&g.id)ratedGenreIds.add(String(g.id))})}catch{}}));
       const allGenres=[...new Set([...genres,...ratedGenreIds])].slice(0,10);
