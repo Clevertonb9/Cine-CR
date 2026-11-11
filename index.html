@@ -3274,10 +3274,16 @@ function CineIntelligenceView(o){
   !hasSignals&&d("div",{className:"mt-4 border border-[#333] rounded-2xl p-4 bg-[#111]",children:[f("p",{className:"font-bold",children:"Vamos conhecer seu gosto?"}),f("p",{className:"text-sm text-[#aaa] mt-1",children:"Adicione títulos aos favoritos, marque o que já assistiu e avalie produções. As sugestões ficam mais relevantes conforme você usa o Cine-CR."})]}),
   results.length?d("div",{className:"grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-7 mt-5",children:results.slice(0,30).map(item=>d("div",{key:item.id,className:"min-w-0",children:[
    f(Pe,{movie:item,isFav:false,onOpen:()=>o.onOpen(item),onToggleFav:()=>o.onToggleFav(item)}),
-   d("div",{className:"mt-2 rounded-xl bg-[#171717] border border-white/5 p-2.5",children:[
-    d("div",{className:"flex items-center justify-between gap-2",children:[f("span",{className:"text-[10px] text-[#aaa] font-bold",children:"COMPATIBILIDADE"}),f("span",{className:"text-sm font-black text-emerald-400",children:item.match+"%"})]}),
-    d("div",{className:"h-1.5 rounded-full bg-white/10 overflow-hidden mt-1.5",children:f("div",{className:"h-full rounded-full bg-emerald-500",style:{width:item.match+"%"}})}),
-    f("p",{className:"text-[10px] text-[#999] mt-2 leading-relaxed",children:item.reason})
+   d("div",{className:"relative mt-2 overflow-hidden rounded-2xl border border-white/10 p-3 shadow-[0_8px_24px_rgba(0,0,0,.28)]",style:{background:"radial-gradient(circle at 8% 0%,rgba(229,9,20,.18),transparent 48%),linear-gradient(145deg,#202020,#101010 72%)"},children:[
+    d("div",{className:"flex items-center gap-3",children:[
+     d("div",{className:"relative shrink-0 rounded-full p-[3px]",style:{width:"48px",height:"48px",background:"conic-gradient(#E50914 "+item.match+"%,rgba(255,255,255,.10) 0)"},children:d("div",{className:"flex h-full w-full items-center justify-center rounded-full border border-white/10",style:{background:"#151515"},children:f("span",{className:"text-[13px] font-black tracking-tight text-white",children:item.match+"%"})})}),
+     d("div",{className:"min-w-0 flex-1",children:[
+      d("div",{className:"flex items-center gap-1.5",children:[f("span",{className:"text-[9px] font-black tracking-[.16em] text-[#E7A1A5]",children:"CINE MATCH"}),d("span",{className:"h-1 w-1 rounded-full bg-[#E50914]"})]}),
+      f("p",{className:"mt-1 text-[11px] font-extrabold leading-tight text-white",children:"Combina com você"}),
+      f("p",{className:"mt-1 text-[9px] leading-snug text-[#aaa]",children:item.reason})
+     ]})
+    ]}),
+    d("div",{className:"mt-3 h-[3px] overflow-hidden rounded-full bg-white/10",children:f("div",{className:"h-full rounded-full",style:{width:item.match+"%",background:"linear-gradient(90deg,#8f0710,#ff424b)"})})
    ]})
   ]}))}):d("div",{className:"mt-5 border border-dashed border-[#333] rounded-[20px] p-8 text-center",children:[
    f("h3",{className:"font-bold",children:"Ainda não há sugestões nesta categoria"}),
