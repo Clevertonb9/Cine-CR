@@ -140,9 +140,9 @@ export default async function handler(req,res){
       const exclude = new Set((q.exclude||"").split(",").map(s=>s.trim()).filter(Boolean));
       const genre = q.genre||""; const mood = q.mood||q.humor||""; const epoca = q.epoca||""; const tempo = q.tempo||"";
       // Gênero pode chegar como rótulo ("Terror") ou ID ("27"): normaliza para ID, senão o TMDB rejeita with_genres com HTTP 422.
-      let withGenres = genre;
-      if(withGenres && !/^\d/.test(String(withGenres).trim())){ const g = String(withGenres).trim().toLowerCase(); withGenres = String(GENRE_PT[g] ?? MOOD_TO_GENRES[g] ?? ""); }
-      if(!withGenres && mood){ const moodKey=mood.toLowerCase(); withGenres = moodKey==="tensao" && type==="tv" ? "9648,80,10759" : (MOOD_TO_GENRES[moodKey]||""); }
+      let withGenres = "";
+      if(mood){ const moodKey=String(mood).trim().toLowerCase(); withGenres = moodKey==="tensao" && type==="tv" ? "9648,80,10759" : (MOOD_TO_GENRES[moodKey]||""); }
+      if(!withGenres){ withGenres = genre; if(withGenres && !/^\d/.test(String(withGenres).trim())){ const g = String(withGenres).trim().toLowerCase(); withGenres = String(GENRE_PT[g] ?? MOOD_TO_GENRES[g] ?? ""); } }
       const paramsBase={language:lang, sort_by:"popularity.desc", "vote_count.gte":"30", include_adult:"false"};
       if(withGenres) paramsBase.with_genres=withGenres;
       // Tempo disponível: com runtime (filmes) / duração do episódio (séries).
