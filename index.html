@@ -2915,10 +2915,30 @@ function WEps(o){
  S.useEffect(()=>{
   let active=true;
   if(!tvId||!seasons.length)return()=>{active=false};
-  Promise.all(seasons.map(async sn=>{
-   try{let params=new URLSearchParams({action:"season",id:tvId,season_number:String(sn.season_number)});let response=await fetch("/api/movies?"+params.toString());if(!response.ok)return null;let data=await response.json();return{season:sn.season_number,episodes:Array.isArray(data.episodes)?data.episodes:[]}}
-   catch(e){return null}
-  })).then(results=>{if(!active)return;let names={};results.filter(Boolean).forEach(result=>result.episodes.forEach(ep=>{if(ep&&typeof ep.episode_number==="number"&&typeof ep.name==="string"&&ep.name.trim())names[result.season+"-"+ep.episode_number]=ep.name.trim()}));setEpisodeNames(names)});
+  (async()=>{
+   let names={};
+   // Consulta uma temporada por vez para evitar excesso de chamadas simultâneas ao TMDB.
+   for(const sn of seasons){
+    if(!active) return;
+    let params=new URLSearchParams({action:"season",id:tvId,season_number:String(sn.season_number)});
+    for(let attempt=0;attempt<3;attempt++){
+     try{
+      const response=await fetch("/api/movies?"+params.toString(),{cache:"no-store"});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(data.error||("HTTP "+response.status));
+      (Array.isArray(data.episodes)?data.episodes:[]).forEach(ep=>{
+       const number=Number(ep.episode_number),title=String(ep.name||ep.original_name||"").trim();
+       if(Number.isFinite(number)&&title)names[sn.season_number+"-"+number]=title;
+      });
+      break;
+     }catch(error){
+      if(attempt===2) console.warn("Cine-CR: não foi possível carregar os nomes da temporada",sn.season_number,error);
+      else await new Promise(resolve=>setTimeout(resolve,700*(attempt+1)));
+     }
+    }
+    if(active)setEpisodeNames({...names});
+   }
+  })();
   return()=>{active=false};
  },[tvId]);
  if(!seasons.length)return f("p",{className:"text-sm text-[#b8b8b8] mt-2",children:"Temporadas não informadas para esta série."});
