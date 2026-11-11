@@ -89,32 +89,26 @@ export default async function handler(req,res){
         if(title&&(!previous.name||index===0))previous.name=title;
         merged.set(number,previous);
       }));
-      // Fonte complementar: TVmaze, consultada pela identificação da série e número de temporada/episódio.
-      if(showName){
+      // Busca pelo título localizado e original, sem aceitar correspondência aproximada de outra série.
+      const showNames=[showName,q.original_name].map(value=>String(value||"").trim()).filter((value,index,list)=>value&&list.findIndex(other=>normalize(other)===normalize(value))===index);
+      for(const candidateName of showNames){
         try{
-          const searchUrl="https://api.tvmaze.com/search/shows?q="+encodeURIComponent(showName);
-          const searchResponse=await fetch(searchUrl,{headers:{Accept:"application/json"}});
-          if(searchResponse.ok){
-            const candidates=await searchResponse.json();
-            const exact=(Array.isArray(candidates)?candidates:[]).find(item=>{
-              const show=item&&item.show;
-              return show&&(normalize(show.name)===normalize(showName)||normalize(show.name)===normalize(q.original_name));
-            });
-            const candidate=exact||(Array.isArray(candidates)?candidates[0]:null);
-            if(candidate?.show?.id){
-              const episodesResponse=await fetch("https://api.tvmaze.com/shows/"+candidate.show.id+"/episodes?specials=1",{headers:{Accept:"application/json"}});
-              if(episodesResponse.ok){
-                const episodes=await episodesResponse.json();
-                (Array.isArray(episodes)?episodes:[]).filter(ep=>Number(ep.season)===Number(seasonNumber)).forEach(ep=>{
-                  const number=Number(ep.number),title=String(ep.name||"").trim();
-                  if(!Number.isFinite(number)||!title)return;
-                  const previous=merged.get(number)||{episode_number:number,name:""};
-                  if(!previous.name)previous.name=title;
-                  merged.set(number,previous);
-                });
-              }
-            }
-          }
+          const searchResponse=await fetch("https://api.tvmaze.com/search/shows?q="+encodeURIComponent(candidateName),{headers:{Accept:"application/json"}});
+          if(!searchResponse.ok)continue;
+          const candidates=await searchResponse.json();
+          const exact=(Array.isArray(candidates)?candidates:[]).find(item=>item?.show&&normalize(item.show.name)===normalize(candidateName));
+          if(!exact?.show?.id)continue;
+          const episodesResponse=await fetch("https://api.tvmaze.com/shows/"+exact.show.id+"/episodes?specials=1",{headers:{Accept:"application/json"}});
+          if(!episodesResponse.ok)continue;
+          const episodes=await episodesResponse.json();
+          (Array.isArray(episodes)?episodes:[]).filter(ep=>Number(ep.season)===Number(seasonNumber)).forEach(ep=>{
+            const number=Number(ep.number),title=String(ep.name||"").trim();
+            if(!Number.isFinite(number)||!title)return;
+            const previous=merged.get(number)||{episode_number:number,name:""};
+            if(!previous.name)previous.name=title;
+            merged.set(number,previous);
+          });
+          if(Array.isArray(episodes)&&episodes.some(ep=>Number(ep.season)===Number(seasonNumber)))break;
         }catch(tvmazeError){console.warn("Cine-CR: TVmaze indisponível para complementar episódios",tvmazeError)}
       }
       return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze"]});
