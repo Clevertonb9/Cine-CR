@@ -2920,7 +2920,7 @@ function WEps(o){
    // Consulta uma temporada por vez para evitar excesso de chamadas simultâneas ao TMDB.
    for(const sn of seasons){
     if(!active) return;
-    let params=new URLSearchParams({action:"season",id:tvId,season_number:String(sn.season_number)});
+    let params=new URLSearchParams({action:"season",id:tvId,season_number:String(sn.season_number),name:String(tv.originalTitle||tv.title||"")});
     for(let attempt=0;attempt<3;attempt++){
      try{
       const response=await fetch("/api/movies?"+params.toString(),{cache:"no-store"});
