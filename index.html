@@ -2902,7 +2902,7 @@ function CineReviews(o){
    });
    setItems(rows);
    const mine=currentUser?rows.find(x=>x.uid===currentUser.uid):null;
-   if(mine){setRating(mine.rating||5);setComment(mine.text||"")}
+   if(mine){setRating(mine.rating||5);setComment(mine.text||"");await cineSaveMyRating(currentUser.uid,mediaKey,Number(mine.rating)||5,db)}
   }catch(e){console.error("[Cine-CR][reviews]",e)}
   finally{setLoading(false)}
  };
