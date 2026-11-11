@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico local — Cine-CR</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:24px;background:#101010;color:#f4f4f4;font:16px system-ui,sans-serif}.wrap{max-width:720px;margin:auto}h1{font-size:22px;color:#ef3434}p{line-height:1.5;color:#ccc}.warning{padding:14px;border:1px solid #a33;border-radius:10px;background:#241313}.panel{margin-top:16px;padding:16px;background:#1b1b1b;border:1px solid #333;border-radius:10px}button{margin-top:14px;padding:13px 18px;background:#d92727;color:white;border:0;border-radius:8px;font-weight:700;font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#d8f5d8;font-size:14px}small{color:#aaa}
+</style>
+</head>
+<body>
+<main class="wrap">
+<h1>Cine-CR · Diagnóstico local</h1>
+<div class="warning"><strong>Somente leitura.</strong> Esta página consulta o armazenamento local deste domínio. Não altera, apaga, sincroniza nem envia dados.</div>
+<p>Abra esta página no mesmo Chrome e no mesmo endereço do Cine-CR em que as listas eram usadas. Toque no botão abaixo para verificar se existem cópias locais.</p>
+<button id="check" type="button">Verificar armazenamento</button>
+<section class="panel" aria-live="polite">
+<strong>Resultado</strong>
+<pre id="out">Aguardando verificação…</pre>
+</section>
+<p><small>O relatório mostra apenas nomes técnicos das chaves, tamanho e contagens aproximadas. Não exibe títulos de filmes, e-mails ou conteúdo das listas.</small></p>
+</main>
+<script>
+(function(){
+  "use strict";
+  var out=document.getElementById("out");
+  var keys=["cinecr_favoritos","cinecr_assistidos_v1","cinecr_quero_assistir_v1","cinecr_hist_filmes","cinecr_hist_series"];
+  function countItems(value){
+    if(Array.isArray(value)) return value.length;
+    if(value && typeof value==="object"){
+      if(Array.isArray(value.items)) return value.items.length;
+      if(value.chunks && typeof value.chunks==="object"){
+        var total=0;
+        Object.keys(value.chunks).forEach(function(k){
+          var chunk=value.chunks[k];
+          if(Array.isArray(chunk)) total+=chunk.length;
+          else if(chunk && Array.isArray(chunk.items)) total+=chunk.items.length;
+        });
+        return total;
+      }
+    }
+    return null;
+  }
+  function inspect(key){
+    var raw=localStorage.getItem(key);
+    if(raw===null) return key+": AUSENTE";
+    var count="não identificado";
+    try{var parsed=JSON.parse(raw);var n=countItems(parsed);if(n!==null)count=String(n);}
+    catch(e){count="formato não JSON";}
+    return key+": PRESENTE | "+raw.length+" caracteres | itens: "+count;
+  }
+  document.getElementById("check").addEventListener("click",function(){
+    try{
+      var lines=["ORIGEM: "+location.origin,"CHAVES PRINCIPAIS:"];
+      keys.forEach(function(k){lines.push("• "+inspect(k));});
+      lines.push("","CÓPIAS POR CONTA:");
+      var found=0;
+      var all=[];
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(k && (k.indexOf("cinecr_uid_")===0 || k.indexOf("cinecr_migration_")===0)) all.push(k);
+      }
+      all.sort();
+      if(!all.length) lines.push("Nenhuma chave de cópia por conta encontrada.");
+      all.forEach(function(k){
+        found++;
+        var masked=k.replace(/cinecr_uid_[^_]+(?=__)/,"cinecr_uid_[conta]");
+        lines.push("• "+masked+" | "+inspect(k).split(": ").slice(1).join(": "));
+      });
+      lines.push("","TOTAL DE CHAVES DE CÓPIA: "+found);
+      lines.push("ACCOUNT_KEY: "+(localStorage.getItem("cinecr_account_uid")!==null?"PRESENTE":"AUSENTE"));
+      out.textContent=lines.join("\n");
+    }catch(e){
+      out.textContent="Não foi possível ler o armazenamento: "+(e && e.name ? e.name : "erro");
+    }
+  });
+})();
+</script>
+</body>
+</html>
