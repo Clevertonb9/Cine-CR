@@ -75,22 +75,24 @@ export default async function handler(req,res){
     if(action==="season"){
       const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim();
       if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
-      // Combina os catálogos em português e inglês: usa a tradução quando existe e completa os títulos ausentes.
-      const results=await Promise.allSettled([
-        tmdb(`/tv/${id}/season/${seasonNumber}`,{language:"pt-BR"}),
-        tmdb(`/tv/${id}/season/${seasonNumber}`,{language:"en-US"})
-      ]);
-      const pt=results[0].status==="fulfilled"?(results[0].value.data.episodes||[]):[];
-      const en=results[1].status==="fulfilled"?(results[1].value.data.episodes||[]):[];
+      // Obtém títulos em português e inglês; uma falha em um idioma não descarta o outro.
+      const languages=["pt-BR","en-US"];
+      const responses=await Promise.all(languages.map(async language=>{
+        try{return await tmdb(`/tv/${id}/season/${seasonNumber}`,{language})}
+        catch(error){return {data:{episodes:[]},error:String(error.message||error)}}
+      }));
       const merged=new Map();
-      en.forEach(ep=>merged.set(Number(ep.episode_number),{episode_number:ep.episode_number,name:String(ep.name||ep.original_name||"").trim()}));
-      pt.forEach(ep=>{
-        const number=Number(ep.episode_number),previous=merged.get(number)||{episode_number:ep.episode_number,name:""};
-        const translated=String(ep.name||"").trim();
-        merged.set(number,{episode_number:ep.episode_number,name:translated||previous.name});
-      });
-      if(!merged.size) throw new Error("Não foi possível carregar os episódios desta temporada no TMDB");
-      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>Number(x.episode_number)-Number(y.episode_number))});
+      for(const response of responses){
+        for(const ep of (response.data.episodes||[])){
+          const number=Number(ep.episode_number);
+          if(!Number.isFinite(number))continue;
+          const title=String(ep.name||ep.original_name||"").trim();
+          const previous=merged.get(number)||{episode_number:number,name:""};
+          if(title&&(!previous.name||response===responses[0]))previous.name=title;
+          merged.set(number,previous);
+        }
+      }
+      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number)});
     }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
