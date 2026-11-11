@@ -2192,13 +2192,44 @@ function localToCloud(key){
   return null;
 }
 /* ---------- cache isolado por UID ---------- */
+/* Considera dados úteis apenas quando há conteúdo real; protege cópias de listas vazias. */
+function hasStoredData(value){
+  if(value==null) return false;
+  if(Array.isArray(value)) return value.length>0;
+  if(typeof value==="object") return Object.keys(value).some(function(k){ return hasStoredData(value[k]); });
+  if(typeof value==="string") return value.length>0;
+  if(typeof value==="number") return value!==0;
+  if(typeof value==="boolean") return value;
+  return false;
+}
+function rawHasStoredData(raw){
+  if(raw==null || raw==="") return false;
+  try{ return hasStoredData(JSON.parse(raw)); }catch(e){ return true; }
+}
 function stashCurrentToPerUID(uid){
   if(!uid) return;
-  SYNC_KEYS.forEach(function(key){ var raw=readRaw(key); suppress=true; try{ if(raw==null) window.localStorage.removeItem(PERUID_KEY(uid,key)); else window.localStorage.setItem(PERUID_KEY(uid,key), raw); }catch(e){} suppress=false; });
+  SYNC_KEYS.forEach(function(key){
+    var raw=readRaw(key);
+    /* Nunca substitui uma cópia útil por uma chave ausente/vazia. */
+    if(!rawHasStoredData(raw)) return;
+    suppress=true;
+    try{ window.localStorage.setItem(PERUID_KEY(uid,key), raw); }catch(e){}
+    suppress=false;
+  });
 }
 function restorePerUIDToLegacy(uid){
+  if(!uid) return false;
   var restored=false;
-  SYNC_KEYS.forEach(function(key){ var raw=readRaw(PERUID_KEY(uid,key)); suppress=true; try{ if(raw==null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, raw); }catch(e){} suppress=false; if(raw!=null) restored=true; });
+  SYNC_KEYS.forEach(function(key){
+    var backup=readRaw(PERUID_KEY(uid,key));
+    if(!rawHasStoredData(backup)) return;
+    var current=readRaw(key);
+    /* Restaura apenas quando o valor atual está ausente/vazio; nunca sobrescreve dados atuais. */
+    if(rawHasStoredData(current)) return;
+    suppress=true;
+    try{ window.localStorage.setItem(key, backup); restored=true; }catch(e){}
+    suppress=false;
+  });
   return restored;
 }
 function clearLegacy(){
@@ -2419,8 +2450,9 @@ async function handleAuth(user){
     if(uidChanged){
       stashCurrentToPerUID(prevUid);
       clearLegacy();
-      restorePerUIDToLegacy(user.uid);
     }
+    /* Também restaura ao entrar novamente na MESMA conta: o logout apaga ACCOUNT_KEY. */
+    restorePerUIDToLegacy(user.uid);
     suppress=true; try{ window.localStorage.setItem(ACCOUNT_KEY, user.uid); }catch(e){} suppress=false;
   }catch(e){}
   switching=false; currentUser=user; syncEnabled=true;
