@@ -153,22 +153,59 @@ export default async function handler(req,res){
     if(action==="trailer"){
       const title = q.title || q.q || "";
       if(!title) return json(res,400,{ok:false, error:"Informe o titulo"});
-      if(!process.env.YOUTUBE_API_KEY) return json(res,500,{ok:false, error:"YOUTUBE_API_KEY nao configurada na Vercel"});
       const year = q.year || "";
-      const cacheKey = normTxt(title) + "|" + year + "|" + (q.media_type || "movie");
+      const mediaType = q.media_type === "tv" ? "tv" : "movie";
+      const cacheKey = normTxt(title) + "|" + year + "|" + mediaType;
       const cached = TRAILER_CACHE.get(cacheKey);
       if(cached && Date.now() - cached.at < TRAILER_TTL_MS) return json(res,200,{ok:true, trailer:cached.trailer, cached:true});
-      const query = [title, year, "official trailer"].filter(Boolean).join(" ");
-      const qs = new URLSearchParams({part:"snippet", type:"video", videoEmbeddable:"true", maxResults:"10", safeSearch:"moderate", q:query, key:process.env.YOUTUBE_API_KEY});
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/search?${qs.toString()}`);
-      const data = await r.json().catch(()=>({}));
-      if(!r.ok) return json(res,200,{ok:true, trailer:null, error:data?.error?.message || `YouTube HTTP ${r.status}`});
-      const ranked = (data.items||[])
-        .map(it=>({...it, _score:scoreTrailer(it, title, year)}))
-        .filter(it=>it._score > 0 && it.id?.videoId)
-        .sort((x,y)=>y._score - x._score);
-      const best = ranked[0];
-      const trailer = best ? {videoId:best.id.videoId, title:best.snippet?.title || null, channelTitle:best.snippet?.channelTitle || null, thumbnail:best.snippet?.thumbnails?.high?.url || best.snippet?.thumbnails?.medium?.url || null, score:best._score} : null;
+
+      // Prioriza a busca direta no YouTube quando a chave estiver configurada.
+      if(process.env.YOUTUBE_API_KEY){
+        const query = [title, year, "official trailer"].filter(Boolean).join(" ");
+        const qs = new URLSearchParams({part:"snippet", type:"video", videoEmbeddable:"true", maxResults:"10", safeSearch:"moderate", q:query, key:process.env.YOUTUBE_API_KEY});
+        const yt = await fetch(`https://www.googleapis.com/youtube/v3/search?${qs.toString()}`);
+        const data = await yt.json().catch(()=>({}));
+        if(yt.ok){
+          const ranked = (data.items||[])
+            .map(it=>({...it, _score:scoreTrailer(it, title, year)}))
+            .filter(it=>it._score > 0 && it.id?.videoId)
+            .sort((x,y)=>y._score - x._score);
+          const best = ranked[0];
+          if(best){
+            const trailer = {videoId:best.id.videoId, title:best.snippet?.title || null, channelTitle:best.snippet?.channelTitle || null, thumbnail:best.snippet?.thumbnails?.high?.url || best.snippet?.thumbnails?.medium?.url || null, score:best._score, source:"youtube"};
+            TRAILER_CACHE.set(cacheKey, {at:Date.now(), trailer});
+            return json(res,200,{ok:true, trailer});
+          }
+        }
+      }
+
+      // Fallback sem chave adicional: usa os vídeos do TMDB, que apontam para trailers hospedados no YouTube.
+      const searchParams = {query:title, include_adult:"false"};
+      if(year) searchParams[mediaType === "movie" ? "year" : "first_air_date_year"] = year;
+      const {data:searchData} = await tmdb(`/search/${mediaType}`, searchParams);
+      const candidates = Array.isArray(searchData.results) ? searchData.results : [];
+      const normalize = value => normTxt(value).replace(/[^a-z0-9]/g,"");
+      const target = normalize(title);
+      const match = candidates
+        .map(item => {
+          const candidateTitle = normalize(item.title || item.name || "");
+          const exact = candidateTitle === target ? 100 : candidateTitle.includes(target) || target.includes(candidateTitle) ? 50 : 0;
+          const date = String(item.release_date || item.first_air_date || "").slice(0,4);
+          return {...item, _matchScore:exact + (year && date === String(year) ? 20 : 0)};
+        })
+        .sort((a,b)=>b._matchScore-a._matchScore)[0];
+      let trailer = null;
+      if(match?.id){
+        let videos = await tmdb(`/${mediaType}/${match.id}/videos`,{language:"pt-BR"});
+        let items = Array.isArray(videos.data.results) ? videos.data.results : [];
+        if(!items.some(item=>item.site==="YouTube" && item.type==="Trailer")){
+          videos = await tmdb(`/${mediaType}/${match.id}/videos`,{language:"en-US"});
+          items = Array.isArray(videos.data.results) ? videos.data.results : [];
+        }
+        const ytVideos = items.filter(item=>item.site==="YouTube" && item.key && item.type==="Trailer");
+        const best = ytVideos.find(item=>item.official) || ytVideos[0];
+        if(best) trailer = {videoId:best.key, title:best.name || null, channelTitle:best.official ? "Canal oficial" : null, thumbnail:`https://img.youtube.com/vi/${best.key}/hqdefault.jpg`, source:"tmdb-youtube"};
+      }
       TRAILER_CACHE.set(cacheKey, {at:Date.now(), trailer});
       return json(res,200,{ok:true, trailer});
     }
