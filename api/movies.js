@@ -60,6 +60,26 @@ export default async function handler(req,res){
     const q = cleanParams(req.query||{});
     const action = q.action;
     const lang = "pt-BR";
+
+    if(action==="christmas"){
+      const terms=["Christmas","Natal","Christmas family","Christmas comedy"];
+      const searches=await Promise.all(terms.map(async query=>{
+        try{const {data}=await tmdb("/search/multi",{query,include_adult:"false",page:"1"});return data.results||[]}
+        catch(error){console.warn("Cine-CR: busca natalina indisponível",query,error);return []}
+      }));
+      const merged=new Map();
+      searches.flat().forEach(item=>{
+        if(!item||!item.id||!["movie","tv"].includes(item.media_type))return;
+        const title=String(item.title||item.name||"").toLowerCase();
+        const overview=String(item.overview||"").toLowerCase();
+        const thematic=/christmas|christmas eve|xmas|natal|noel|papai noel|véspera de natal|espírito natalino/.test(title+" "+overview);
+        if(!thematic)return;
+        const key=item.media_type+"_"+item.id;
+        if(!merged.has(key))merged.set(key,item);
+      });
+      const results=[...merged.values()].sort((a,b)=>(Number(b.vote_average)||0)-(Number(a.vote_average)||0));
+      return json(res,200,{ok:true,results:results.slice(0,60)});
+    }
     if(action==="trending"){
       const {data}=await tmdb("/trending/all/week",{language:lang, page:q.page||"1"});
       return json(res,200,{ok:true, results:data.results||[]});
