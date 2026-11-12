@@ -3048,7 +3048,6 @@ function CineReviews(o){
  const submit=async()=>{
   if(!currentUser){alert("Entre na sua conta para avaliar este título.");return}
   const txt=comment.trim();
-  if(!txt){alert("Escreva um comentário antes de publicar.");return}
   if(txt.length>500){alert("O comentário pode ter no máximo 500 caracteres.");return}
   setBusy(true);
   try{
@@ -3083,7 +3082,7 @@ function CineReviews(o){
   d("div",{className:"mt-4 bg-[#1b1b1b] border border-white/10 rounded-2xl p-4",children:[
    f("p",{className:"font-bold text-sm",children:currentUser?"Sua avaliação":"Entre para avaliar este título"}),
    d("div",{className:"flex items-center gap-1 mt-3",children:[1,2,3,4,5].map(n=>f("button",{type:"button","aria-label":n+" estrelas",onClick:()=>setRating(n),className:"text-3xl transition-transform active:scale-110",style:{color:n<=rating?"#FACC15":"#666666"}, "aria-pressed":n<=rating,children:"★"},n))}),
-   f("textarea",{value:comment,onChange:e=>setComment(e.target.value.slice(0,500)),maxLength:500,placeholder:"Conte o que achou do filme ou série…",className:"w-full min-h-[110px] mt-3 bg-white text-black placeholder:text-gray-500 border border-white/20 rounded-xl p-3 text-sm outline-none focus:border-[#E50914] resize-y",style:{color:"#111111",backgroundColor:"#ffffff",caretColor:"#E50914"}}),
+   f("textarea",{value:comment,onChange:e=>setComment(e.target.value.slice(0,500)),maxLength:500,placeholder:"Comentário opcional: conte o que achou do filme ou série…",className:"w-full min-h-[110px] mt-3 bg-white text-black placeholder:text-gray-500 border border-white/20 rounded-xl p-3 text-sm outline-none focus:border-[#E50914] resize-y",style:{color:"#111111",backgroundColor:"#ffffff",caretColor:"#E50914"}}),
    d("div",{className:"flex items-center justify-between gap-2 mt-2",children:[
     f("span",{className:"text-[11px] text-[#888]",children:comment.length+"/500 caracteres • uma avaliação por conta"}),
     f("button",{disabled:busy||!currentUser,onClick:submit,className:"bg-[#E50914] disabled:opacity-40 px-5 py-2.5 rounded-full text-sm font-bold",children:busy?"Publicando…":"Publicar avaliação"})
@@ -3092,7 +3091,7 @@ function CineReviews(o){
   loading?f("p",{className:"text-sm text-[#888] mt-4",children:"Carregando avaliações…"}):
   items.length?d("div",{className:"space-y-3 mt-4",children:items.map(x=>d("article",{key:x.id,className:"bg-[#1b1b1b] border border-white/10 rounded-2xl p-4",children:[
    d("div",{className:"flex items-center justify-between gap-2",children:[f("p",{className:"font-bold text-sm",children:x.displayName||"Cinéfilo"}),f("span",{className:"text-[#FACC15] text-sm font-bold",children:"★ ".repeat(Math.max(1,Math.min(5,Number(x.rating)||1)))})]}),
-   f("p",{className:"text-sm text-[#d6d6d6] mt-2 whitespace-pre-wrap break-words",children:x.text||""}),
+   x.text?f("p",{className:"text-sm text-[#d6d6d6] mt-2 whitespace-pre-wrap break-words",children:x.text}):f("p",{className:"text-xs text-[#888] mt-2 italic",children:"Avaliou com "+(Number(x.rating)||0)+" estrelas."}),
    currentUser&&x.uid===currentUser.uid&&d("div",{className:"flex items-center justify-between gap-3 mt-3",children:[f("p",{className:"text-[10px] text-[#E50914]",children:"Sua avaliação"}),f("button",{type:"button",disabled:busy,onClick:deleteReview,className:"text-xs font-bold text-red-400 hover:text-red-300 border border-red-500/40 rounded-full px-3 py-1.5 disabled:opacity-40",children:"Apagar comentário"})]})
   ]}))}):
   f("p",{className:"text-sm text-[#888] mt-4 text-center border border-dashed border-white/10 rounded-xl p-5",children:"Ainda não há avaliações. Seja o primeiro a compartilhar sua opinião!"})
