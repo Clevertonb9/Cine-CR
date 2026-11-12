@@ -3348,7 +3348,7 @@ function CineIntelligenceView(o){
   ]}),
   d("div",{className:"mt-6 flex items-center justify-between gap-2",children:[d("div",{children:[f("h2",{className:"font-display text-[27px] sm:text-[32px]",children:"Filmes compatíveis com você"}),f("p",{className:"text-xs text-[#999] mt-1",children:"Sugestões recalculadas quando suas preferências mudam."})]}),f("button",{onClick:()=>setRefresh(v=>v+1),disabled:loading,className:"shrink-0 rounded-full bg-white/10 px-3 py-2 text-xs font-bold disabled:opacity-50",children:loading?"Atualizando…":"↻ Atualizar"})]}),
   loading&&f("p",{className:"text-xs text-[#aaa] mt-3",children:"Buscando opções no catálogo do TMDB…"}),
-  results.length?d("div",{className:"grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-8 sm:gap-y-10 mt-6",children:results.slice(0,40).map(item=>d("div",{key:item.id,className:"min-w-0",children:[
+  results.length?d("div",{className:"grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-7 sm:gap-y-8 mt-6",children:results.slice(0,40).map(item=>d("div",{key:item.id,className:"min-w-0 rounded-2xl border border-white/10 bg-[#111] p-3 sm:p-4 shadow-lg shadow-black/20",children:[
    f(Pe,{movie:item,isFav:false,onOpen:()=>o.onOpen(item),onToggleFav:()=>o.onToggleFav(item)}),
    d("div",{className:"mt-3 rounded-2xl border border-white/10 p-4 shadow-lg shadow-black/20",style:{background:"linear-gradient(145deg,#202020,#101010)"},children:[
     d("div",{className:"flex items-center gap-3",children:[
