@@ -3047,6 +3047,7 @@ function CineReviews(o){
  S.useEffect(()=>{load()},[mediaKey,currentUser&&currentUser.uid]);
  const submit=async()=>{
   if(!currentUser){alert("Entre na sua conta para avaliar este título.");return}
+  if(!db){alert("O serviço de avaliações não está disponível. Recarregue a página e tente novamente.");return}
   const txt=comment.trim();
   if(txt.length>500){alert("O comentário pode ter no máximo 500 caracteres.");return}
   setBusy(true);
@@ -3057,7 +3058,7 @@ function CineReviews(o){
    },{merge:true});
    await cineSaveMyRating(currentUser.uid,mediaKey,Number(rating),db);
    await load();alert("Sua avaliação foi publicada!");
-  }catch(e){console.error("[Cine-CR][reviews-save]",e);alert("Não foi possível publicar. Confira se as novas regras do Firestore já foram publicadas.")}
+  }catch(e){console.error("[Cine-CR][reviews-save]",e);const code=e&&e.code?String(e.code):"erro desconhecido";alert("Não foi possível publicar ("+code+"). "+(code==="permission-denied"?"As regras do Firestore ainda podem estar desatualizadas.":(e&&e.message?e.message:"Verifique sua conexão e tente novamente.")))}
   finally{setBusy(false)}
  };
  const deleteReview=async()=>{
