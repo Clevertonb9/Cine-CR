@@ -72,12 +72,13 @@ export default async function handler(req,res){
         if(!item||!item.id||!["movie","tv"].includes(item.media_type))return;
         const title=String(item.title||item.name||"").toLowerCase();
         const overview=String(item.overview||"").toLowerCase();
-        const thematic=/christmas|christmas eve|xmas|natal|noel|papai noel|véspera de natal|espírito natalino/.test(title+" "+overview);
-        if(!thematic)return;
+        const titleTheme=/christmas|xmas|natal|noel|papai noel|grinch|scrooge|holiday/.test(title);
+        const synopsisTheme=/christmas|xmas|natal|noel|papai noel|véspera de natal|espírito natalino|holiday season/.test(overview);
+        if(title==="natal"||title==="pai natal"||(!titleTheme&&!synopsisTheme)||(!synopsisTheme&&(Number(item.vote_count)||0)<100))return;
         const key=item.media_type+"_"+item.id;
         if(!merged.has(key))merged.set(key,item);
       });
-      const results=[...merged.values()].sort((a,b)=>(Number(b.vote_average)||0)-(Number(a.vote_average)||0));
+      const results=[...merged.values()].sort((a,b)=>(Number(b.vote_count)||0)-(Number(a.vote_count)||0)||(Number(b.vote_average)||0)-(Number(a.vote_average)||0));
       return json(res,200,{ok:true,results:results.slice(0,60)});
     }
     if(action==="trending"){
