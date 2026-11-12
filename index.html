@@ -3348,9 +3348,9 @@ function CineIntelligenceView(o){
   ]}),
   d("div",{className:"mt-6 flex items-center justify-between gap-2",children:[d("div",{children:[f("h2",{className:"font-display text-[27px] sm:text-[32px]",children:"Filmes compatíveis com você"}),f("p",{className:"text-xs text-[#999] mt-1",children:"Sugestões recalculadas quando suas preferências mudam."})]}),f("button",{onClick:()=>setRefresh(v=>v+1),disabled:loading,className:"shrink-0 rounded-full bg-white/10 px-3 py-2 text-xs font-bold disabled:opacity-50",children:loading?"Atualizando…":"↻ Atualizar"})]}),
   loading&&f("p",{className:"text-xs text-[#aaa] mt-3",children:"Buscando opções no catálogo do TMDB…"}),
-  results.length?d("div",{className:"grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-5 mt-4",children:results.slice(0,40).map(item=>d("div",{key:item.id,className:"min-w-0",children:[
+  results.length?d("div",{className:"grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 sm:gap-x-6 gap-y-8 sm:gap-y-10 mt-6",children:results.slice(0,40).map(item=>d("div",{key:item.id,className:"min-w-0",children:[
    f(Pe,{movie:item,isFav:false,onOpen:()=>o.onOpen(item),onToggleFav:()=>o.onToggleFav(item)}),
-   d("div",{className:"mt-2 rounded-2xl border border-white/10 p-3",style:{background:"linear-gradient(145deg,#202020,#101010)"},children:[
+   d("div",{className:"mt-3 rounded-2xl border border-white/10 p-4 shadow-lg shadow-black/20",style:{background:"linear-gradient(145deg,#202020,#101010)"},children:[
     d("div",{className:"flex items-center gap-3",children:[
      d("div",{className:"shrink-0 rounded-full p-[3px]",style:{width:"48px",height:"48px",background:"conic-gradient(#E50914 "+item.match+"%,rgba(255,255,255,.10) 0)"},children:f("span",{className:"flex h-full w-full items-center justify-center rounded-full bg-[#151515] text-[13px] font-black text-white",children:item.match+"%"})}),
      d("div",{className:"min-w-0 flex-1",children:[f("span",{className:"text-[9px] font-black tracking-[.16em] text-[#E7A1A5]",children:"CINE MATCH"}),f("p",{className:"mt-1 text-[11px] font-extrabold text-white",children:"Combina com você"}),f("p",{className:"mt-1 text-[9px] leading-snug text-[#aaa]",children:item.reason})]})
