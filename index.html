@@ -2734,12 +2734,15 @@ function CineLevelCard(){let[,tick]=S.useState(0);S.useEffect(()=>{let h=()=>tic
 /* ===== NUMERAÇÃO PREMIUM DO TOP 10 (Filmes em Alta) — placa escura + número com gradiente medalha ===== */
 function Top10Numero(o){
  let rank=o.rank;
- let medal = rank===1 ? {txt:"bg-gradient-to-b from-[#FEF08A] via-[#FACC15] to-[#B45309] bg-clip-text text-transparent", box:"border-[#FACC15]/70 shadow-[0_0_18px_rgba(250,204,21,.45)]", size:"text-[22px] sm:text-[26px]"}
-  : rank===2 ? {txt:"bg-gradient-to-b from-[#F8FAFC] via-[#CBD5E1] to-[#64748B] bg-clip-text text-transparent", box:"border-[#CBD5E1]/60 shadow-[0_0_14px_rgba(203,213,225,.35)]", size:"text-[20px] sm:text-[24px]"}
-  : rank===3 ? {txt:"bg-gradient-to-b from-[#FED7AA] via-[#FB923C] to-[#9A3412] bg-clip-text text-transparent", box:"border-[#FB923C]/60 shadow-[0_0_14px_rgba(251,146,60,.35)]", size:"text-[20px] sm:text-[24px]"}
-  : {txt:"text-white", box:"border-white/15", size:"text-[18px] sm:text-[22px]"};
- return d("span",{"aria-hidden":"true",className:`absolute left-2 top-2 z-10 grid place-items-center rounded-lg bg-black/65 backdrop-blur px-1.5 py-0.5 border ${medal.box} pointer-events-none select-none`,children:[
-  f("span",{className:`font-display leading-none ${medal.size} ${medal.txt} drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]`,children:String(rank).padStart(2,"0")})
+ let medal = rank===1
+  ? {bg:"bg-gradient-to-br from-[#38BDF8] to-[#1D4ED8]",ring:"ring-2 ring-[#7DD3FC]/70 shadow-[0_0_18px_rgba(56,189,248,.55)]",size:"text-[22px] sm:text-[26px]"}
+  : rank===2
+  ? {bg:"bg-gradient-to-br from-[#2563EB] to-[#1E40AF]",ring:"ring-1 ring-[#60A5FA]/70 shadow-[0_0_14px_rgba(37,99,235,.42)]",size:"text-[20px] sm:text-[24px]"}
+  : rank===3
+  ? {bg:"bg-gradient-to-br from-[#1D4ED8] to-[#1E3A8A]",ring:"ring-1 ring-[#3B82F6]/60 shadow-[0_0_12px_rgba(29,78,216,.35)]",size:"text-[20px] sm:text-[24px]"}
+  : {bg:"bg-gradient-to-br from-[#2563EB] to-[#1E40AF]",ring:"ring-1 ring-[#3B82F6]/45 shadow-[0_2px_9px_rgba(30,64,175,.35)]",size:"text-[18px] sm:text-[22px]"};
+ return d("span",{"aria-hidden":"true",className:`absolute left-2 top-2 z-10 grid place-items-center rounded-lg ${medal.bg} ${medal.ring} px-2 py-1 pointer-events-none select-none`,children:[
+  f("span",{className:`font-display font-black leading-none text-white ${medal.size} drop-shadow-[0_1px_2px_rgba(0,0,0,.35)]`,children:String(rank).padStart(2,"0")})
  ]});
 }
 /* ===== DEDUPE ENTRE RECOMENDAÇÕES DA TELA INICIAL (só Home; nunca Favoritos/Assistidos/Quero Ver/Catálogo/Me Indica) ===== */
