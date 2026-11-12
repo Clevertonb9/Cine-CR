@@ -2735,13 +2735,9 @@ function CineLevelCard(){let[,tick]=S.useState(0);S.useEffect(()=>{let h=()=>tic
 function Top10Numero(o){
  let rank=o.rank;
  let medal = rank===1
-  ? {bg:"bg-gradient-to-br from-[#38BDF8] to-[#1D4ED8]",ring:"ring-2 ring-[#7DD3FC]/70 shadow-[0_0_18px_rgba(56,189,248,.55)]",size:"text-[22px] sm:text-[26px]"}
-  : rank===2
-  ? {bg:"bg-gradient-to-br from-[#2563EB] to-[#1E40AF]",ring:"ring-1 ring-[#60A5FA]/70 shadow-[0_0_14px_rgba(37,99,235,.42)]",size:"text-[20px] sm:text-[24px]"}
-  : rank===3
-  ? {bg:"bg-gradient-to-br from-[#1D4ED8] to-[#1E3A8A]",ring:"ring-1 ring-[#3B82F6]/60 shadow-[0_0_12px_rgba(29,78,216,.35)]",size:"text-[20px] sm:text-[24px]"}
-  : {bg:"bg-gradient-to-br from-[#2563EB] to-[#1E40AF]",ring:"ring-1 ring-[#3B82F6]/45 shadow-[0_2px_9px_rgba(30,64,175,.35)]",size:"text-[18px] sm:text-[22px]"};
- return d("span",{"aria-hidden":"true",className:`absolute left-2 top-2 z-10 grid place-items-center rounded-lg ${medal.bg} ${medal.ring} px-2 py-1 pointer-events-none select-none`,children:[
+  ? {bg:"bg-gradient-to-br from-[#38BDF8] to-[#1D4ED8]",ring:"ring-2 ring-[#7DD3FC]/70 shadow-[0_0_16px_rgba(56,189,248,.5)]",size:"text-[20px] sm:text-[24px]"}
+  : {bg:"bg-gradient-to-br from-[#2563EB] to-[#1E40AF]",ring:"ring-1 ring-[#60A5FA]/55 shadow-[0_2px_10px_rgba(37,99,235,.38)]",size:"text-[18px] sm:text-[22px]"};
+ return d("span",{"aria-hidden":"true",className:`absolute left-2 top-2 z-10 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full ${medal.bg} ${medal.ring} pointer-events-none select-none`,children:[
   f("span",{className:`font-display font-black leading-none text-white ${medal.size} drop-shadow-[0_1px_2px_rgba(0,0,0,.35)]`,children:String(rank).padStart(2,"0")})
  ]});
 }
