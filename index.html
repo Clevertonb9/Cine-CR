@@ -2734,10 +2734,9 @@ function CineLevelCard(){let[,tick]=S.useState(0);S.useEffect(()=>{let h=()=>tic
 /* ===== NUMERAÇÃO PREMIUM DO TOP 10 (Filmes em Alta) — placa escura + número com gradiente medalha ===== */
 function Top10Numero(o){
  let rank=o.rank;
- let bg=rank===1?"#1677E8":"#075BCB";
- let shadow=rank===1?"0 0 0 2px rgba(147,213,255,.9), 0 2px 12px rgba(22,119,232,.55)":"0 0 0 1px rgba(121,185,255,.75), 0 2px 9px rgba(7,91,203,.45)";
- return d("span",{"aria-hidden":"true",className:"absolute left-2 top-2 z-10 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-[13px] border border-white/40 pointer-events-none select-none",style:{backgroundColor:bg,background:bg,boxShadow:shadow,opacity:1},children:[
-  f("span",{className:`font-display font-black leading-none text-white ${rank===10?"text-[17px] sm:text-[19px]":"text-[21px] sm:text-[25px]"} drop-shadow-[0_1px_2px_rgba(0,0,0,.4)]`,style:{color:"#FFFFFF"},children:String(rank)})
+ let bg="#E50914";
+ return d("span",{"aria-hidden":"true",className:"absolute left-2 top-2 z-10 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full border border-white/45 pointer-events-none select-none",style:{backgroundColor:bg,background:bg,backgroundImage:"none",boxShadow:"0 2px 10px rgba(229,9,20,.42)",opacity:1},children:[
+  f("span",{className:`font-display font-black leading-none text-white ${rank===10?"text-[17px] sm:text-[19px]":"text-[21px] sm:text-[25px]"}`,style:{color:"#FFFFFF"},children:String(rank)})
  ]});
 }
 /* ===== DEDUPE ENTRE RECOMENDAÇÕES DA TELA INICIAL (só Home; nunca Favoritos/Assistidos/Quero Ver/Catálogo/Me Indica) ===== */
