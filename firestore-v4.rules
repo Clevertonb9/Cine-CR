@@ -32,7 +32,7 @@ service cloud.firestore {
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5
         && request.resource.data.text is string
-        && request.resource.data.text.size() >= 1
+        && request.resource.data.text.size() >= 0
         && request.resource.data.text.size() <= 500;
       allow delete: if signedInAs(userId);
     }
