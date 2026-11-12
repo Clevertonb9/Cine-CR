@@ -2735,10 +2735,10 @@ function CineLevelCard(){let[,tick]=S.useState(0);S.useEffect(()=>{let h=()=>tic
 function Top10Numero(o){
  let rank=o.rank;
  let medal = rank===1
-  ? {bg:"bg-gradient-to-br from-[#38BDF8] to-[#1D4ED8]",ring:"ring-2 ring-[#7DD3FC]/70 shadow-[0_0_16px_rgba(56,189,248,.5)]",size:"text-[20px] sm:text-[24px]"}
-  : {bg:"bg-gradient-to-br from-[#2563EB] to-[#1E40AF]",ring:"ring-1 ring-[#60A5FA]/55 shadow-[0_2px_10px_rgba(37,99,235,.38)]",size:"text-[18px] sm:text-[22px]"};
- return d("span",{"aria-hidden":"true",className:`absolute left-2 top-2 z-10 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full ${medal.bg} ${medal.ring} pointer-events-none select-none`,children:[
-  f("span",{className:`font-display font-black leading-none text-white ${medal.size} drop-shadow-[0_1px_2px_rgba(0,0,0,.35)]`,children:String(rank).padStart(2,"0")})
+  ? {bg:"bg-gradient-to-br from-[#60C5FF] via-[#258BFA] to-[#1554D1]",ring:"ring-2 ring-[#93D5FF]/80 shadow-[0_2px_12px_rgba(37,139,250,.55)]"}
+  : {bg:"bg-gradient-to-br from-[#3B9BFF] via-[#176FE5] to-[#1046B5]",ring:"ring-1 ring-[#79B9FF]/65 shadow-[0_2px_9px_rgba(23,111,229,.45)]"};
+ return d("span",{"aria-hidden":"true",className:`absolute left-2 top-2 z-10 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-[13px] border border-white/35 ${medal.bg} ${medal.ring} pointer-events-none select-none`,children:[
+  f("span",{className:`font-display font-black leading-none text-white ${rank===10?"text-[17px] sm:text-[19px]":"text-[21px] sm:text-[25px]"} drop-shadow-[0_1px_2px_rgba(0,0,0,.4)]`,children:String(rank)})
  ]});
 }
 /* ===== DEDUPE ENTRE RECOMENDAÇÕES DA TELA INICIAL (só Home; nunca Favoritos/Assistidos/Quero Ver/Catálogo/Me Indica) ===== */
