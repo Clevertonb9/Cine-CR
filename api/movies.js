@@ -181,9 +181,9 @@ export default async function handler(req,res){
           });
           if(!exact?.mal_id)continue;
           let page=1,hasMore=true,guard=0;
-          while(hasMore&&guard<10){
+          while(hasMore&&guard<5){
             const episodeResponse=await fetch("https://api.jikan.moe/v4/anime/"+exact.mal_id+"/episodes?page="+page,{headers:{Accept:"application/json"}});
-            if(episodeResponse.status===429){await new Promise(resolve=>setTimeout(resolve,1100));continue}
+            if(episodeResponse.status===429){guard++;if(guard>=5)break;await new Promise(resolve=>setTimeout(resolve,1100));continue}
             if(!episodeResponse.ok)break;
             const episodeData=await episodeResponse.json();
             // Jikan devolve episódios em ordem; mal_id é o ID do registro,
