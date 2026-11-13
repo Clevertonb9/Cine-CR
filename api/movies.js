@@ -95,44 +95,109 @@ export default async function handler(req,res){
     }
     if(action==="season"){
       const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim(),showName=String(q.name||"").trim();
-      if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
-      const normalize=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+      if(!/^\\d+$/.test(id)||!/^\\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
+      const normalize=value=>String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
       const merged=new Map();
-      // Fonte primária: TMDB em português e inglês.
-      const tmdbResults=await Promise.all(["pt-BR","en-US"].map(async language=>{
+      const addEpisode=(number,title,source,prefer=false)=>{
+        const n=Number(number),t=String(title||"").trim();
+        if(!Number.isInteger(n)||n<1||!t)return;
+        const previous=merged.get(n)||{episode_number:n,name:""};
+        if(!previous.name||prefer){previous.name=t;previous.source=source}
+        merged.set(n,previous);
+      };
+      // TMDB: consultar vários idiomas; conservar primeiro o título em português e
+      // preencher lacunas com inglês/japonês, sem substituir um título já válido.
+      const tmdbLanguages=["pt-BR","en-US","ja-JP","es-ES"];
+      const tmdbResults=await Promise.all(tmdbLanguages.map(async language=>{
         try{const result=await tmdb(`/tv/${id}/season/${seasonNumber}`,{language});return result.data.episodes||[]}
-        catch(error){return []}
+        catch(error){console.warn("Cine-CR: TMDB temporada indisponível",language,error);return []}
       }));
-      tmdbResults.forEach((list,index)=>list.forEach(ep=>{
-        const number=Number(ep.episode_number),title=String(ep.name||ep.original_name||"").trim();
-        if(!Number.isFinite(number))return;
-        const previous=merged.get(number)||{episode_number:number,name:""};
-        if(title&&(!previous.name||index===0))previous.name=title;
-        merged.set(number,previous);
-      }));
-      // Busca pelo título localizado e original, sem aceitar correspondência aproximada de outra série.
-      const showNames=[showName,q.original_name].map(value=>String(value||"").trim()).filter((value,index,list)=>value&&list.findIndex(other=>normalize(other)===normalize(value))===index);
-      for(const candidateName of showNames){
-        try{
-          const searchResponse=await fetch("https://api.tvmaze.com/search/shows?q="+encodeURIComponent(candidateName),{headers:{Accept:"application/json"}});
-          if(!searchResponse.ok)continue;
-          const candidates=await searchResponse.json();
-          const exact=(Array.isArray(candidates)?candidates:[]).find(item=>item?.show&&normalize(item.show.name)===normalize(candidateName));
-          if(!exact?.show?.id)continue;
-          const episodesResponse=await fetch("https://api.tvmaze.com/shows/"+exact.show.id+"/episodes?specials=1",{headers:{Accept:"application/json"}});
-          if(!episodesResponse.ok)continue;
-          const episodes=await episodesResponse.json();
-          (Array.isArray(episodes)?episodes:[]).filter(ep=>Number(ep.season)===Number(seasonNumber)).forEach(ep=>{
-            const number=Number(ep.number),title=String(ep.name||"").trim();
-            if(!Number.isFinite(number)||!title)return;
-            const previous=merged.get(number)||{episode_number:number,name:""};
-            if(!previous.name)previous.name=title;
-            merged.set(number,previous);
+      tmdbResults.forEach((list,index)=>list.forEach(ep=>addEpisode(ep.episode_number,ep.name||ep.original_name,"TMDB:"+tmdbLanguages[index],index===0)));
+      
+      // Reúne nomes alternativos e identificadores oficiais para localizar a mesma
+      // série em catálogos externos (inclusive títulos japoneses/ocidentais).
+      const showNames=[showName,q.original_name].filter(Boolean);
+      let externalIds={},alternativeNames=[];
+      try{
+        const [externalResult,alternativeResult,translationResult]=await Promise.all([
+          tmdb(`/tv/${id}/external_ids`),
+          tmdb(`/tv/${id}/alternative_titles`),
+          tmdb(`/tv/${id}/translations`)
+        ]);
+        externalIds=externalResult.data||{};
+        alternativeNames=(alternativeResult.data?.results||[]).map(x=>x.title).concat(
+          (translationResult.data?.translations||[]).flatMap(x=>[x.data?.name,x.data?.title])
+        );
+      }catch(error){console.warn("Cine-CR: não foi possível consultar títulos alternativos",error)}
+      const uniqueNames=[...new Set([...showNames,...alternativeNames].map(x=>String(x||"").trim()).filter(Boolean))];
+      
+      // TVmaze: primeiro tenta o vínculo por IMDb (quando disponível), depois
+      // pesquisa títulos alternativos com correspondência exata para evitar série errada.
+      try{
+        let show=null;
+        if(externalIds.imdb_id){
+          const lookup=await fetch("https://api.tvmaze.com/lookup/shows?imdb="+encodeURIComponent(externalIds.imdb_id),{headers:{Accept:"application/json"}});
+          if(lookup.ok)show=await lookup.json();
+        }
+        if(!show){
+          for(const candidateName of uniqueNames.slice(0,8)){
+            const response=await fetch("https://api.tvmaze.com/search/shows?q="+encodeURIComponent(candidateName),{headers:{Accept:"application/json"}});
+            if(!response.ok)continue;
+            const candidates=await response.json();
+            const exact=(Array.isArray(candidates)?candidates:[]).find(item=>{
+              const names=[item?.show?.name,...(item?.show?.akas||[])].filter(Boolean);
+              return names.some(name=>normalize(name)===normalize(candidateName));
+            });
+            if(exact?.show?.id){show=exact.show;break}
+          }
+        }
+        if(show?.id){
+          const response=await fetch("https://api.tvmaze.com/shows/"+show.id+"/episodes?specials=1",{headers:{Accept:"application/json"}});
+          if(response.ok){
+            const episodes=await response.json();
+            (Array.isArray(episodes)?episodes:[]).filter(ep=>Number(ep.season)===Number(seasonNumber)).forEach(ep=>addEpisode(ep.number,ep.name,"TVmaze"));
+          }
+        }
+      }catch(error){console.warn("Cine-CR: TVmaze indisponível para complementar episódios",error)}
+      
+      // Jikan/MAL: fonte complementar especialmente útil para animes clássicos,
+      // cujos títulos e temporadas podem não estar completos no TVmaze.
+      // Só aceita anime com título exato (ou alias exato) para não misturar obras.
+      try{
+        for(const candidateName of uniqueNames.slice(0,6)){
+          const response=await fetch("https://api.jikan.moe/v4/anime?q="+encodeURIComponent(candidateName)+"&limit=10",{headers:{Accept:"application/json"}});
+          if(!response.ok)continue;
+          const results=await response.json();
+          const exact=(results.data||[]).find(anime=>{
+            const names=[anime.title,anime.title_english,anime.title_japanese,...(anime.title_synonyms||[]),...(anime.titles||[]).map(x=>x.title)].filter(Boolean);
+            return names.some(name=>normalize(name)===normalize(candidateName));
           });
-          if(Array.isArray(episodes)&&episodes.some(ep=>Number(ep.season)===Number(seasonNumber)))break;
-        }catch(tvmazeError){console.warn("Cine-CR: TVmaze indisponível para complementar episódios",tvmazeError)}
-      }
-      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze"]});
+          if(!exact?.mal_id)continue;
+          let page=1,hasMore=true,guard=0;
+          while(hasMore&&guard<10){
+            const episodeResponse=await fetch("https://api.jikan.moe/v4/anime/"+exact.mal_id+"/episodes?page="+page,{headers:{Accept:"application/json"}});
+            if(episodeResponse.status===429){await new Promise(resolve=>setTimeout(resolve,1100));continue}
+            if(!episodeResponse.ok)break;
+            const episodeData=await episodeResponse.json();
+            (episodeData.data||[]).forEach(ep=>{
+              const title=ep.title||ep.title_romanji||ep.title_japanese||"";
+              addEpisode(ep.mal_id?ep.mal_id:ep.mal_id,title,"Jikan");
+            });
+            // O endpoint de episódios do Jikan é numerado sequencialmente pelo
+            // campo mal_id? Não: usar o número da página/lista, preservando a ordem.
+            const rows=episodeData.data||[];
+            rows.forEach((ep,index)=>{
+              const episodeNumber=(page-1)*100+index+1;
+              addEpisode(episodeNumber,ep.title||ep.title_romanji||ep.title_japanese,"Jikan");
+            });
+            hasMore=Boolean(episodeData.pagination?.has_next_page);page++;guard++;
+            if(hasMore)await new Promise(resolve=>setTimeout(resolve,380));
+          }
+          if(merged.size)break;
+          await new Promise(resolve=>setTimeout(resolve,380));
+        }
+      }catch(error){console.warn("Cine-CR: Jikan indisponível para complementar anime",error)}
+      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze","Jikan"]});
     }
     if(action==="personalized_catalog"){
       const rawGenres=String(q.genres||"").split(",").map(x=>x.trim()).filter(x=>/^\d+$/.test(x));
