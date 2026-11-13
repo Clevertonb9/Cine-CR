@@ -95,8 +95,8 @@ export default async function handler(req,res){
     }
     if(action==="season"){
       const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim(),showName=String(q.name||"").trim();
-      if(!/^\\d+$/.test(id)||!/^\\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
-      const normalize=value=>String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+      if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
+      const normalize=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
       const merged=new Map();
       const addEpisode=(number,title,source,prefer=false)=>{
         const n=Number(number),t=String(title||"").trim();
