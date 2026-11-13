@@ -2957,6 +2957,7 @@ function WEps(o){
  let[,tick]=S.useState(0),[episodeNames,setEpisodeNames]=S.useState({});
  let tv=o.tv,tvId=String(tv.tmdbId||"");
  let seasons=(tv.seasons||[]).filter(sn=>sn&&typeof sn.episode_count==="number"&&sn.episode_count>0);
+ const seasonKey=seasons.map(sn=>String(sn.season_number)+":"+String(sn.episode_count)).join("|");
  S.useEffect(()=>{
   let active=true;
   if(!tvId||!seasons.length)return()=>{active=false};
@@ -2985,7 +2986,7 @@ function WEps(o){
    }
   })();
   return()=>{active=false};
- },[tvId]);
+ },[tvId,seasonKey,tv.title,tv.originalTitle]);
  if(!seasons.length)return f("p",{className:"text-sm text-[#b8b8b8] mt-2",children:"Temporadas não informadas para esta série."});
  let st=wLoad(),total=0,done=0;
  let blocks=seasons.map(sn=>{
