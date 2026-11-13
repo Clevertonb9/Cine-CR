@@ -163,13 +163,55 @@ export default async function handler(req,res){
       // Jikan/MAL: fonte complementar especialmente útil para animes clássicos,
       // cujos títulos e temporadas podem não estar completos no TVmaze.
       // Só aceita anime com título exato (ou alias exato) para não misturar obras.
-      let animeEpisodeOffset=0;
+      let animeEpisodeOffset=0,isAnime=false;
       try{
         const showDetails=await tmdb("/tv/"+id,{language:"en-US"});
-        animeEpisodeOffset=(showDetails.data?.seasons||[])
+        const details=showDetails.data||{};
+        animeEpisodeOffset=(details.seasons||[])
           .filter(season=>Number(season.season_number)<Number(seasonNumber))
           .reduce((sum,season)=>sum+(Number(season.episode_count)||0),0);
-      }catch{}
+        isAnime=(details.genres||[]).some(genre=>Number(genre.id)===16) &&
+          (details.original_language==="ja"||(details.origin_country||[]).includes("JP"));
+      }catch(error){console.warn("Cine-CR: não foi possível identificar o tipo da série",error)}
+
+      // Kitsu é uma segunda fonte para títulos de animes. A busca exige
+      // correspondência exata de título/alias para impedir mistura de obras.
+      if(isAnime){
+        try{
+          let kitsuAnime=null;
+          for(const candidateName of uniqueNames.slice(0,6)){
+            const searchUrl="https://kitsu.io/api/edge/anime?filter%5Btext%5D="+encodeURIComponent(candidateName)+"&page%5Blimit%5D=20";
+            const searchResponse=await fetch(searchUrl,{headers:{Accept:"application/vnd.api+json"}});
+            if(!searchResponse.ok)continue;
+            const searchData=await searchResponse.json();
+            const exact=(searchData.data||[]).find(item=>{
+              const attrs=item?.attributes||{},titles=[attrs.canonicalTitle,...Object.values(attrs.titles||{}),...(attrs.abbreviatedTitles||[])].filter(Boolean);
+              return titles.some(title=>normalize(title)===normalize(candidateName));
+            });
+            if(exact?.id){kitsuAnime=exact;break}
+          }
+          if(kitsuAnime?.id){
+            let offset=0,hasMore=true,pages=0;
+            while(hasMore&&pages<30){
+              const episodesUrl="https://kitsu.io/api/edge/episodes?filter%5BanimeId%5D="+encodeURIComponent(kitsuAnime.id)+"&page%5Blimit%5D=20&page%5Boffset%5D="+offset;
+              const episodeResponse=await fetch(episodesUrl,{headers:{Accept:"application/vnd.api+json"}});
+              if(!episodeResponse.ok)break;
+              const episodeData=await episodeResponse.json(),rows=episodeData.data||[];
+              rows.forEach(item=>{
+                const attrs=item?.attributes||{},season=Number(attrs.seasonNumber);
+                const rawNumber=Number(attrs.relativeNumber||attrs.number);
+                const episodeNumber=Number.isFinite(season)&&season>0
+                  ? (season===Number(seasonNumber)?Number(attrs.number||attrs.relativeNumber):NaN)
+                  : animeEpisodeOffset+rawNumber;
+                addEpisode(episodeNumber,attrs.canonicalTitle||attrs.titles?.en_us||attrs.titles?.en_jp,"Kitsu");
+              });
+              hasMore=Boolean(episodeData.links?.next)&&rows.length>0;
+              offset+=rows.length;pages++;
+            }
+          }
+        }catch(error){console.warn("Cine-CR: Kitsu indisponível para complementar anime",error)}
+      }
+
       try{
         for(const candidateName of uniqueNames.slice(0,6)){
           const response=await fetch("https://api.jikan.moe/v4/anime?q="+encodeURIComponent(candidateName)+"&limit=10",{headers:{Accept:"application/json"}});
