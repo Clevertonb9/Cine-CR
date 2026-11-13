@@ -2154,11 +2154,7 @@ body{
   else window.addEventListener("load",applyCineCRLogo,{once:true});
 })();
 </script>
-<button id="cinecr-account-btn" title="Conta Cine-CR" style="display:none!important;position:fixed;right:12px;bottom:92px;z-index:90;background:#111;border:1px solid #333;color:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;align-items:center;gap:8px;max-width:220px">
-  <span id="cinecr-account-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e"></span>
-  <span id="cinecr-account-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Minha conta</span>
-  <span style="color:#fca5a5">Sair</span>
-</button>
+<button id="cinecr-account-btn" type="button" aria-hidden="true" tabindex="-1" style="display:none!important;visibility:hidden!important;pointer-events:none!important;width:0;height:0;padding:0;border:0;overflow:hidden"></button>
 <script>
 (function(){
 "use strict";
