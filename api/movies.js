@@ -60,6 +60,27 @@ export default async function handler(req,res){
     const q = cleanParams(req.query||{});
     const action = q.action;
     const lang = "pt-BR";
+
+    if(action==="christmas"){
+      const terms=["Christmas","Natal","Christmas family","Christmas comedy"];
+      const searches=await Promise.all(terms.map(async query=>{
+        try{const {data}=await tmdb("/search/multi",{query,include_adult:"false",page:"1"});return data.results||[]}
+        catch(error){console.warn("Cine-CR: busca natalina indisponível",query,error);return []}
+      }));
+      const merged=new Map();
+      searches.flat().forEach(item=>{
+        if(!item||!item.id||!["movie","tv"].includes(item.media_type))return;
+        const title=String(item.title||item.name||"").toLowerCase();
+        const overview=String(item.overview||"").toLowerCase();
+        const titleTheme=/christmas|xmas|natal|noel|papai noel|grinch|scrooge|holiday/.test(title);
+        const synopsisTheme=/christmas|xmas|natal|noel|papai noel|véspera de natal|espírito natalino|holiday season/.test(overview);
+        if(title==="natal"||title==="pai natal"||(!titleTheme&&!synopsisTheme)||(!synopsisTheme&&(Number(item.vote_count)||0)<100))return;
+        const key=item.media_type+"_"+item.id;
+        if(!merged.has(key))merged.set(key,item);
+      });
+      const results=[...merged.values()].sort((a,b)=>(Number(b.vote_count)||0)-(Number(a.vote_count)||0)||(Number(b.vote_average)||0)-(Number(a.vote_average)||0));
+      return json(res,200,{ok:true,results:results.slice(0,60)});
+    }
     if(action==="trending"){
       const {data}=await tmdb("/trending/all/week",{language:lang, page:q.page||"1"});
       return json(res,200,{ok:true, results:data.results||[]});
@@ -71,6 +92,181 @@ export default async function handler(req,res){
     if(action==="search"){
       const {data}=await tmdb("/search/multi",{language:lang, query:q.query||"", page:q.page||"1", include_adult:"false"});
       return json(res,200,{ok:true, results:(data.results||[]).filter(x=>x.media_type==="movie"||x.media_type==="tv")});
+    }
+    if(action==="season"){
+      const id=String(q.id||"").trim(),seasonNumber=String(q.season_number??"").trim(),showName=String(q.name||"").trim();
+      if(!/^\d+$/.test(id)||!/^\d+$/.test(seasonNumber)) return json(res,400,{ok:false,error:"Série ou temporada inválida"});
+      const normalize=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");
+      const merged=new Map();
+      const addEpisode=(number,title,source,prefer=false)=>{
+        const n=Number(number),t=String(title||"").trim();
+        if(!Number.isInteger(n)||n<1)return;
+        const previous=merged.get(n)||{episode_number:n,name:""};
+        if(t&&(!previous.name||prefer)){previous.name=t;previous.source=source}
+        merged.set(n,previous);
+      };
+      // TMDB: consultar vários idiomas; conservar primeiro o título em português e
+      // preencher lacunas com inglês/japonês, sem substituir um título já válido.
+      const tmdbLanguages=["pt-BR","en-US","ja-JP","es-ES"];
+      const tmdbResults=await Promise.all(tmdbLanguages.map(async language=>{
+        try{const result=await tmdb(`/tv/${id}/season/${seasonNumber}`,{language});return result.data.episodes||[]}
+        catch(error){console.warn("Cine-CR: TMDB temporada indisponível",language,error);return []}
+      }));
+      tmdbResults.forEach((list,index)=>list.forEach(ep=>addEpisode(ep.episode_number,ep.name||ep.original_name,"TMDB:"+tmdbLanguages[index],index===0)));
+      
+      // Só consultar catálogos externos se o TMDB não entregou todos os títulos.
+      // Isso evita atrasar a resposta em séries cuja lista já está completa.
+      const tmdbHasCompleteTitles=merged.size>0&&[...merged.values()].every(ep=>Boolean(ep.name));
+      if(!tmdbHasCompleteTitles){
+      // Reúne nomes alternativos e identificadores oficiais para localizar a mesma
+      // série em catálogos externos (inclusive títulos japoneses/ocidentais).
+      const showNames=[showName,q.original_name].filter(Boolean);
+      let externalIds={},alternativeNames=[];
+      try{
+        const [externalResult,alternativeResult,translationResult]=await Promise.all([
+          tmdb(`/tv/${id}/external_ids`),
+          tmdb(`/tv/${id}/alternative_titles`),
+          tmdb(`/tv/${id}/translations`)
+        ]);
+        externalIds=externalResult.data||{};
+        alternativeNames=(alternativeResult.data?.results||[]).map(x=>x.title).concat(
+          (translationResult.data?.translations||[]).flatMap(x=>[x.data?.name,x.data?.title])
+        );
+      }catch(error){console.warn("Cine-CR: não foi possível consultar títulos alternativos",error)}
+      const uniqueNames=[...new Set([...showNames,...alternativeNames].map(x=>String(x||"").trim()).filter(Boolean))];
+      
+      // TVmaze: primeiro tenta o vínculo por IMDb (quando disponível), depois
+      // pesquisa títulos alternativos com correspondência exata para evitar série errada.
+      try{
+        let show=null;
+        if(externalIds.imdb_id){
+          const lookup=await fetch("https://api.tvmaze.com/lookup/shows?imdb="+encodeURIComponent(externalIds.imdb_id),{headers:{Accept:"application/json"}});
+          if(lookup.ok)show=await lookup.json();
+        }
+        if(!show){
+          for(const candidateName of uniqueNames.slice(0,8)){
+            const response=await fetch("https://api.tvmaze.com/search/shows?q="+encodeURIComponent(candidateName),{headers:{Accept:"application/json"}});
+            if(!response.ok)continue;
+            const candidates=await response.json();
+            const exact=(Array.isArray(candidates)?candidates:[]).find(item=>{
+              const names=[item?.show?.name,...(item?.show?.akas||[])].filter(Boolean);
+              return names.some(name=>normalize(name)===normalize(candidateName));
+            });
+            if(exact?.show?.id){show=exact.show;break}
+          }
+        }
+        if(show?.id){
+          const response=await fetch("https://api.tvmaze.com/shows/"+show.id+"/episodes?specials=1",{headers:{Accept:"application/json"}});
+          if(response.ok){
+            const episodes=await response.json();
+            (Array.isArray(episodes)?episodes:[]).filter(ep=>Number(ep.season)===Number(seasonNumber)).forEach(ep=>addEpisode(ep.number,ep.name,"TVmaze"));
+          }
+        }
+      }catch(error){console.warn("Cine-CR: TVmaze indisponível para complementar episódios",error)}
+      
+      // Jikan/MAL: fonte complementar especialmente útil para animes clássicos,
+      // cujos títulos e temporadas podem não estar completos no TVmaze.
+      // Só aceita anime com título exato (ou alias exato) para não misturar obras.
+      let animeEpisodeOffset=0,isAnime=false;
+      try{
+        const showDetails=await tmdb("/tv/"+id,{language:"en-US"});
+        const details=showDetails.data||{};
+        animeEpisodeOffset=(details.seasons||[])
+          .filter(season=>Number(season.season_number)<Number(seasonNumber))
+          .reduce((sum,season)=>sum+(Number(season.episode_count)||0),0);
+        isAnime=(details.genres||[]).some(genre=>Number(genre.id)===16) &&
+          (details.original_language==="ja"||(details.origin_country||[]).includes("JP"));
+      }catch(error){console.warn("Cine-CR: não foi possível identificar o tipo da série",error)}
+
+      // Kitsu é uma segunda fonte para títulos de animes. A busca exige
+      // correspondência exata de título/alias para impedir mistura de obras.
+      if(isAnime){
+        try{
+          let kitsuAnime=null;
+          for(const candidateName of uniqueNames.slice(0,6)){
+            const searchUrl="https://kitsu.io/api/edge/anime?filter%5Btext%5D="+encodeURIComponent(candidateName)+"&page%5Blimit%5D=20";
+            const searchResponse=await fetch(searchUrl,{headers:{Accept:"application/vnd.api+json"}});
+            if(!searchResponse.ok)continue;
+            const searchData=await searchResponse.json();
+            const exact=(searchData.data||[]).find(item=>{
+              const attrs=item?.attributes||{},titles=[attrs.canonicalTitle,...Object.values(attrs.titles||{}),...(attrs.abbreviatedTitles||[])].filter(Boolean);
+              return titles.some(title=>normalize(title)===normalize(candidateName));
+            });
+            if(exact?.id){kitsuAnime=exact;break}
+          }
+          if(kitsuAnime?.id){
+            let offset=0,hasMore=true,pages=0;
+            while(hasMore&&pages<30){
+              const episodesUrl="https://kitsu.io/api/edge/episodes?filter%5BanimeId%5D="+encodeURIComponent(kitsuAnime.id)+"&page%5Blimit%5D=20&page%5Boffset%5D="+offset;
+              const episodeResponse=await fetch(episodesUrl,{headers:{Accept:"application/vnd.api+json"}});
+              if(!episodeResponse.ok)break;
+              const episodeData=await episodeResponse.json(),rows=episodeData.data||[];
+              rows.forEach(item=>{
+                const attrs=item?.attributes||{},season=Number(attrs.seasonNumber);
+                const rawNumber=Number(attrs.relativeNumber||attrs.number);
+                const episodeNumber=Number.isFinite(season)&&season>0
+                  ? (season===Number(seasonNumber)?Number(attrs.number||attrs.relativeNumber):NaN)
+                  : animeEpisodeOffset+rawNumber;
+                addEpisode(episodeNumber,attrs.canonicalTitle||attrs.titles?.en_us||attrs.titles?.en_jp,"Kitsu");
+              });
+              hasMore=Boolean(episodeData.links?.next)&&rows.length>0;
+              offset+=rows.length;pages++;
+            }
+          }
+        }catch(error){console.warn("Cine-CR: Kitsu indisponível para complementar anime",error)}
+      }
+
+      try{
+        for(const candidateName of uniqueNames.slice(0,6)){
+          const response=await fetch("https://api.jikan.moe/v4/anime?q="+encodeURIComponent(candidateName)+"&limit=10",{headers:{Accept:"application/json"}});
+          if(!response.ok)continue;
+          const results=await response.json();
+          const exact=(results.data||[]).find(anime=>{
+            const names=[anime.title,anime.title_english,anime.title_japanese,...(anime.title_synonyms||[]),...(anime.titles||[]).map(x=>x.title)].filter(Boolean);
+            return names.some(name=>normalize(name)===normalize(candidateName));
+          });
+          if(!exact?.mal_id)continue;
+          let page=1,hasMore=true,guard=0;
+          while(hasMore&&guard<5){
+            const episodeResponse=await fetch("https://api.jikan.moe/v4/anime/"+exact.mal_id+"/episodes?page="+page,{headers:{Accept:"application/json"}});
+            if(episodeResponse.status===429){guard++;if(guard>=5)break;await new Promise(resolve=>setTimeout(resolve,1100));continue}
+            if(!episodeResponse.ok)break;
+            const episodeData=await episodeResponse.json();
+            // Jikan devolve episódios em ordem; mal_id é o ID do registro,
+            // não o número do episódio. A numeração é sequencial por página.
+            const rows=episodeData.data||[];
+            rows.forEach((ep,index)=>{
+              const perPage=Number(episodeData.pagination?.items?.per_page)||100;
+              const episodeNumber=animeEpisodeOffset+(page-1)*perPage+index+1;
+              addEpisode(episodeNumber,ep.title||ep.title_romanji||ep.title_japanese,"Jikan");
+            });
+            hasMore=Boolean(episodeData.pagination?.has_next_page);page++;guard++;
+            if(hasMore)await new Promise(resolve=>setTimeout(resolve,380));
+          }
+          if(merged.size&&[...merged.values()].every(ep=>ep.name))break;
+          await new Promise(resolve=>setTimeout(resolve,380));
+        }
+      }catch(error){console.warn("Cine-CR: Jikan indisponível para complementar anime",error)}
+      }
+      return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze","Jikan"]});
+    }
+    if(action==="personalized_catalog"){
+      const rawGenres=String(q.genres||"").split(",").map(x=>x.trim()).filter(x=>/^\d+$/.test(x));
+      const genres=[...new Set(rawGenres)].slice(0,6);
+      const ratedIds=String(q.rated||"").split(",").map(x=>x.trim()).filter(x=>/^\d+$/.test(x)).slice(0,8);
+      const ratedGenreIds=new Set();
+      await Promise.all(ratedIds.map(async id=>{try{const {data}=await tmdb("/movie/"+id,{language:lang});(data.genres||[]).forEach(g=>{if(g&&g.id)ratedGenreIds.add(String(g.id))})}catch{}}));
+      const allGenres=[...new Set([...genres,...ratedGenreIds])].slice(0,10);
+      const pages=new Set();
+      while(pages.size<6) pages.add(1+Math.floor(Math.random()*500));
+      const resultsMap=new Map();
+      await Promise.all([...pages].map(async page=>{
+        const params={language:lang,page:String(page),sort_by:"popularity.desc","vote_count.gte":"30",include_adult:"false"};
+        if(allGenres.length) params.with_genres=allGenres.join("|");
+        const {data}=await tmdb("/discover/movie",params);
+        (data.results||[]).forEach(item=>{if(item&&item.id)resultsMap.set(String(item.id),item)});
+      }));
+      return json(res,200,{ok:true,results:[...resultsMap.values()],pagesChecked:[...pages],personalizedBy:allGenres});
     }
     if(action==="details"){
       const type = q.media_type==="tv" ? "tv" : "movie";
@@ -94,22 +290,59 @@ export default async function handler(req,res){
     if(action==="trailer"){
       const title = q.title || q.q || "";
       if(!title) return json(res,400,{ok:false, error:"Informe o titulo"});
-      if(!process.env.YOUTUBE_API_KEY) return json(res,500,{ok:false, error:"YOUTUBE_API_KEY nao configurada na Vercel"});
       const year = q.year || "";
-      const cacheKey = normTxt(title) + "|" + year + "|" + (q.media_type || "movie");
+      const mediaType = q.media_type === "tv" ? "tv" : "movie";
+      const cacheKey = normTxt(title) + "|" + year + "|" + mediaType;
       const cached = TRAILER_CACHE.get(cacheKey);
       if(cached && Date.now() - cached.at < TRAILER_TTL_MS) return json(res,200,{ok:true, trailer:cached.trailer, cached:true});
-      const query = [title, year, "official trailer"].filter(Boolean).join(" ");
-      const qs = new URLSearchParams({part:"snippet", type:"video", videoEmbeddable:"true", maxResults:"10", safeSearch:"moderate", q:query, key:process.env.YOUTUBE_API_KEY});
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/search?${qs.toString()}`);
-      const data = await r.json().catch(()=>({}));
-      if(!r.ok) return json(res,200,{ok:true, trailer:null, error:data?.error?.message || `YouTube HTTP ${r.status}`});
-      const ranked = (data.items||[])
-        .map(it=>({...it, _score:scoreTrailer(it, title, year)}))
-        .filter(it=>it._score > 0 && it.id?.videoId)
-        .sort((x,y)=>y._score - x._score);
-      const best = ranked[0];
-      const trailer = best ? {videoId:best.id.videoId, title:best.snippet?.title || null, channelTitle:best.snippet?.channelTitle || null, thumbnail:best.snippet?.thumbnails?.high?.url || best.snippet?.thumbnails?.medium?.url || null, score:best._score} : null;
+
+      // Prioriza a busca direta no YouTube quando a chave estiver configurada.
+      if(process.env.YOUTUBE_API_KEY){
+        const query = [title, year, "official trailer"].filter(Boolean).join(" ");
+        const qs = new URLSearchParams({part:"snippet", type:"video", videoEmbeddable:"true", maxResults:"10", safeSearch:"moderate", q:query, key:process.env.YOUTUBE_API_KEY});
+        const yt = await fetch(`https://www.googleapis.com/youtube/v3/search?${qs.toString()}`);
+        const data = await yt.json().catch(()=>({}));
+        if(yt.ok){
+          const ranked = (data.items||[])
+            .map(it=>({...it, _score:scoreTrailer(it, title, year)}))
+            .filter(it=>it._score > 0 && it.id?.videoId)
+            .sort((x,y)=>y._score - x._score);
+          const best = ranked[0];
+          if(best){
+            const trailer = {videoId:best.id.videoId, title:best.snippet?.title || null, channelTitle:best.snippet?.channelTitle || null, thumbnail:best.snippet?.thumbnails?.high?.url || best.snippet?.thumbnails?.medium?.url || null, score:best._score, source:"youtube"};
+            TRAILER_CACHE.set(cacheKey, {at:Date.now(), trailer});
+            return json(res,200,{ok:true, trailer});
+          }
+        }
+      }
+
+      // Fallback sem chave adicional: usa os vídeos do TMDB, que apontam para trailers hospedados no YouTube.
+      const searchParams = {query:title, include_adult:"false"};
+      if(year) searchParams[mediaType === "movie" ? "year" : "first_air_date_year"] = year;
+      const {data:searchData} = await tmdb(`/search/${mediaType}`, searchParams);
+      const candidates = Array.isArray(searchData.results) ? searchData.results : [];
+      const normalize = value => normTxt(value).replace(/[^a-z0-9]/g,"");
+      const target = normalize(title);
+      const match = candidates
+        .map(item => {
+          const candidateTitle = normalize(item.title || item.name || "");
+          const exact = candidateTitle === target ? 100 : candidateTitle.includes(target) || target.includes(candidateTitle) ? 50 : 0;
+          const date = String(item.release_date || item.first_air_date || "").slice(0,4);
+          return {...item, _matchScore:exact + (year && date === String(year) ? 20 : 0)};
+        })
+        .sort((a,b)=>b._matchScore-a._matchScore)[0];
+      let trailer = null;
+      if(match?.id){
+        let videos = await tmdb(`/${mediaType}/${match.id}/videos`,{language:"pt-BR"});
+        let items = Array.isArray(videos.data.results) ? videos.data.results : [];
+        if(!items.some(item=>item.site==="YouTube" && item.type==="Trailer")){
+          videos = await tmdb(`/${mediaType}/${match.id}/videos`,{language:"en-US"});
+          items = Array.isArray(videos.data.results) ? videos.data.results : [];
+        }
+        const ytVideos = items.filter(item=>item.site==="YouTube" && item.key && item.type==="Trailer");
+        const best = ytVideos.find(item=>item.official) || ytVideos[0];
+        if(best) trailer = {videoId:best.key, title:best.name || null, channelTitle:best.official ? "Canal oficial" : null, thumbnail:`https://img.youtube.com/vi/${best.key}/hqdefault.jpg`, source:"tmdb-youtube"};
+      }
       TRAILER_CACHE.set(cacheKey, {at:Date.now(), trailer});
       return json(res,200,{ok:true, trailer});
     }
@@ -140,9 +373,9 @@ export default async function handler(req,res){
       const exclude = new Set((q.exclude||"").split(",").map(s=>s.trim()).filter(Boolean));
       const genre = q.genre||""; const mood = q.mood||q.humor||""; const epoca = q.epoca||""; const tempo = q.tempo||"";
       // Gênero pode chegar como rótulo ("Terror") ou ID ("27"): normaliza para ID, senão o TMDB rejeita with_genres com HTTP 422.
-      let withGenres = genre;
-      if(withGenres && !/^\d/.test(String(withGenres).trim())){ const g = String(withGenres).trim().toLowerCase(); withGenres = String(GENRE_PT[g] ?? MOOD_TO_GENRES[g] ?? ""); }
-      if(!withGenres && mood) withGenres = MOOD_TO_GENRES[mood.toLowerCase()]||"";
+      let withGenres = "";
+      if(mood){ const moodKey=String(mood).trim().toLowerCase(); withGenres = moodKey==="tensao" && type==="tv" ? "9648|80|10759" : (MOOD_TO_GENRES[moodKey]||""); }
+      if(!withGenres){ withGenres = genre; if(withGenres && !/^\d/.test(String(withGenres).trim())){ const g = String(withGenres).trim().toLowerCase(); withGenres = String(GENRE_PT[g] ?? MOOD_TO_GENRES[g] ?? ""); } }
       const paramsBase={language:lang, sort_by:"popularity.desc", "vote_count.gte":"30", include_adult:"false"};
       if(withGenres) paramsBase.with_genres=withGenres;
       // Tempo disponível: com runtime (filmes) / duração do episódio (séries).

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="112" fill="#050505"/>
+<rect x="28" y="28" width="456" height="456" rx="94" fill="#111" stroke="#E50914" stroke-width="14"/>
+<path d="M106 142h300v228H106z" fill="#E50914" rx="24"/>
+<path d="M106 142l70 76-70 76zm300 0l-70 76 70 76z" fill="#050505" opacity=".9"/>
+<path d="M211 190l112 66-112 66z" fill="#fff"/>
+<text x="256" y="426" text-anchor="middle" font-family="Arial,sans-serif" font-size="46" font-weight="900" letter-spacing="3" fill="#fff">CINE CR</text>
+</svg>
