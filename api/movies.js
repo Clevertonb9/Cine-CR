@@ -100,9 +100,9 @@ export default async function handler(req,res){
       const merged=new Map();
       const addEpisode=(number,title,source,prefer=false)=>{
         const n=Number(number),t=String(title||"").trim();
-        if(!Number.isInteger(n)||n<1||!t)return;
+        if(!Number.isInteger(n)||n<1)return;
         const previous=merged.get(n)||{episode_number:n,name:""};
-        if(!previous.name||prefer){previous.name=t;previous.source=source}
+        if(t&&(!previous.name||prefer)){previous.name=t;previous.source=source}
         merged.set(n,previous);
       };
       // TMDB: consultar vários idiomas; conservar primeiro o título em português e
@@ -163,6 +163,13 @@ export default async function handler(req,res){
       // Jikan/MAL: fonte complementar especialmente útil para animes clássicos,
       // cujos títulos e temporadas podem não estar completos no TVmaze.
       // Só aceita anime com título exato (ou alias exato) para não misturar obras.
+      let animeEpisodeOffset=0;
+      try{
+        const showDetails=await tmdb("/tv/"+id,{language:"en-US"});
+        animeEpisodeOffset=(showDetails.data?.seasons||[])
+          .filter(season=>Number(season.season_number)<Number(seasonNumber))
+          .reduce((sum,season)=>sum+(Number(season.episode_count)||0),0);
+      }catch{}
       try{
         for(const candidateName of uniqueNames.slice(0,6)){
           const response=await fetch("https://api.jikan.moe/v4/anime?q="+encodeURIComponent(candidateName)+"&limit=10",{headers:{Accept:"application/json"}});
@@ -183,7 +190,8 @@ export default async function handler(req,res){
             // não o número do episódio. A numeração é sequencial por página.
             const rows=episodeData.data||[];
             rows.forEach((ep,index)=>{
-              const episodeNumber=(page-1)*100+index+1;
+              const perPage=Number(episodeData.pagination?.items?.per_page)||100;
+              const episodeNumber=animeEpisodeOffset+(page-1)*perPage+index+1;
               addEpisode(episodeNumber,ep.title||ep.title_romanji||ep.title_japanese,"Jikan");
             });
             hasMore=Boolean(episodeData.pagination?.has_next_page);page++;guard++;
