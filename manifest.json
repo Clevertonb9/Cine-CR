@@ -1,0 +1,19 @@
+{
+  "name": "Cine-CR",
+  "short_name": "Cine-CR",
+  "description": "Descubra, salve e decida o que assistir hoje.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050505",
+  "theme_color": "#E50914",
+  "icons": [
+    {
+      "src": "/icons/cinecr.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
