@@ -1,0 +1,59 @@
+name: Build Cine-CR Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integracao-firebase-segura
+    paths:
+      - 'package.json'
+      - 'capacitor.config.json'
+      - 'www/**'
+      - '.github/workflows/android-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Gerar projeto Android
+        run: npx cap add android
+
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: Compilar APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Preparar arquivo APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Cine-CR.apk
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cine-CR-Android-APK
+          path: Cine-CR.apk
+          retention-days: 14
