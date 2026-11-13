@@ -1,9 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>React Artifact</title>
+  <meta name="theme-color" content="#E50914">
+  <meta name="description" content="Cine-CR — descubra, salve e decida o que assistir hoje.">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icons/cinecr.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/cinecr.svg">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Cine-CR">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Cine-CR</title>
   <style>
 @keyframes cinecr-roulette-frame{from{opacity:.2;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
 @keyframes cinecr-reveal{from{opacity:0;transform:scale(.94) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}
@@ -3314,5 +3323,14 @@ X1.createRoot(document.getElementById("root")).render(f(m1.default.StrictMode,{c
 </script>
   <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if(((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host)||u.protocol==="mailto:"||u.protocol==="tel:"||u.protocol==="sms:"){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
   <script type="application/json" data-clippy-inline-media-manifest="1">{"version":1,"slots":[]}</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(error => {
+      console.warn("Cine-CR: não foi possível ativar o modo instalável.", error);
+    });
+  });
+}
+</script>
 </body>
 </html>
