@@ -2,6 +2,7 @@
   "name": "Cine-CR",
   "short_name": "Cine-CR",
   "description": "Descubra, salve e decida o que assistir hoje.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -11,9 +12,15 @@
   "icons": [
     {
       "src": "/icons/cinecr.svg",
-      "sizes": "any",
+      "sizes": "192x192",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/cinecr.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
