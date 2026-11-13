@@ -2127,7 +2127,8 @@ body{
 
 @media (min-width:600px) and (max-width:1100px){
   .cine-avatar-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;padding:8px 12px 16px 4px!important}
-  .cine-avatar-art{height:clamp(260px,38vw,380px)!important;min-height:clamp(260px,38vw,380px)!important}
+  .cine-avatar-art{height:clamp(240px,32vw,340px)!important;min-height:clamp(240px,32vw,340px)!important;padding:8px!important}
+  .cine-avatar-art img{position:absolute!important;inset:8px!important;width:calc(100% - 16px)!important;height:calc(100% - 16px)!important;max-width:none!important;max-height:none!important;object-fit:contain!important;object-position:center!important}
 }
 @media (min-width:1101px){
   .cine-avatar-art{height:280px!important;min-height:280px!important}
