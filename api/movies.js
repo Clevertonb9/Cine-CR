@@ -114,6 +114,10 @@ export default async function handler(req,res){
       }));
       tmdbResults.forEach((list,index)=>list.forEach(ep=>addEpisode(ep.episode_number,ep.name||ep.original_name,"TMDB:"+tmdbLanguages[index],index===0)));
       
+      // Só consultar catálogos externos se o TMDB não entregou todos os títulos.
+      // Isso evita atrasar a resposta em séries cuja lista já está completa.
+      const tmdbHasCompleteTitles=merged.size>0&&[...merged.values()].every(ep=>Boolean(ep.name));
+      if(!tmdbHasCompleteTitles){
       // Reúne nomes alternativos e identificadores oficiais para localizar a mesma
       // série em catálogos externos (inclusive títulos japoneses/ocidentais).
       const showNames=[showName,q.original_name].filter(Boolean);
@@ -243,6 +247,7 @@ export default async function handler(req,res){
           await new Promise(resolve=>setTimeout(resolve,380));
         }
       }catch(error){console.warn("Cine-CR: Jikan indisponível para complementar anime",error)}
+      }
       return json(res,200,{ok:true,episodes:[...merged.values()].sort((x,y)=>x.episode_number-y.episode_number),sources:["TMDB","TVmaze","Jikan"]});
     }
     if(action==="personalized_catalog"){
