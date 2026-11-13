@@ -2856,6 +2856,26 @@ function ColecoesHome(o){
  return d("div",{children:CINE_COLECOES.map((def)=>f(CineColecaoSec,{def:def,isFav:o.isFav,onOpen:o.onOpen,onToggleFav:o.onToggleFav},def.id))});
 }
 
+function CineIntelligenceView(o){
+ const items=Array.isArray(o.items)?o.items.filter(Boolean):[];
+ const favorites=Array.isArray(o.favorites)?o.favorites:[];
+ const isFav=(m)=>favorites.some(x=>String(x?.id??x)===String(m.id));
+ const list=items.filter(m=>m.posterUrl).slice(0,24);
+ return d("section",{className:"mt-5 sm:mt-7",children:[
+  d("div",{className:"rounded-[22px] border border-white/10 p-5 sm:p-7",style:{background:"radial-gradient(circle at 90% 0%,rgba(229,9,20,.22),transparent 38%),linear-gradient(135deg,#171717,#090909)"},children:[
+   f("p",{className:"text-[#E50914] text-[11px] font-black tracking-[.22em]",children:"CINE-CR • RECOMENDAÇÕES"}),
+   f("h2",{className:"font-display text-[30px] sm:text-[42px] leading-tight mt-2",children:"PARA VOCÊ"}),
+   f("p",{className:"text-sm sm:text-base text-[#c4c4c4] mt-2 max-w-[680px]",children:"Sugestões baseadas nos títulos que você acompanha, avalia e salva."}),
+   f("button",{onClick:()=>o.onExplore&&o.onExplore(),className:"mt-4 bg-[#E50914] hover:bg-[#c20710] px-5 py-2.5 rounded-full text-sm font-bold",children:"Explorar catálogo"})
+  ]}),
+  list.length?d("div",{className:"grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-7 mt-6",children:list.map(m=>f("div",{className:"min-w-0",children:f(Pe,{movie:m,isFav:isFav(m),onOpen:()=>o.onOpen&&o.onOpen(m),onToggleFav:()=>o.onToggleFav&&o.onToggleFav(m)},m.id)},String(m.media_type||"movie")+":"+String(m.id)))})
+  :d("div",{className:"mt-5 rounded-2xl border border-dashed border-white/15 p-7 text-center",children:[
+   f("p",{className:"font-bold",children:"Ainda estamos preparando suas recomendações."}),
+   f("p",{className:"text-sm text-[#b8b8b8] mt-2",children:"Explore o catálogo, favorite títulos ou avalie o que já assistiu para personalizar esta área."}),
+   f("button",{onClick:()=>o.onExplore&&o.onExplore(),className:"mt-4 bg-white text-black px-5 py-2.5 rounded-full text-sm font-bold",children:"Ir para o catálogo"})
+  ]})
+ ]});
+}
 function CineEmAltaView(o){
  let[items,setItems]=S.useState([]);
  let[pg,setPg]=S.useState(1);
