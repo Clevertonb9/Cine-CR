@@ -1,0 +1,18 @@
+{
+  "appId": "br.com.cinecr.app",
+  "appName": "Cine-CR",
+  "webDir": "www",
+  "server": {
+    "url": "https://cinecr.vercel.app",
+    "cleartext": false,
+    "allowNavigation": [
+      "cinecr.vercel.app",
+      "*.vercel.app",
+      "cine-cr.firebaseapp.com",
+      "*.google.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
