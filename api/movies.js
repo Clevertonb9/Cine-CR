@@ -179,12 +179,8 @@ export default async function handler(req,res){
             if(episodeResponse.status===429){await new Promise(resolve=>setTimeout(resolve,1100));continue}
             if(!episodeResponse.ok)break;
             const episodeData=await episodeResponse.json();
-            (episodeData.data||[]).forEach(ep=>{
-              const title=ep.title||ep.title_romanji||ep.title_japanese||"";
-              addEpisode(ep.mal_id?ep.mal_id:ep.mal_id,title,"Jikan");
-            });
-            // O endpoint de episódios do Jikan é numerado sequencialmente pelo
-            // campo mal_id? Não: usar o número da página/lista, preservando a ordem.
+            // Jikan devolve episódios em ordem; mal_id é o ID do registro,
+            // não o número do episódio. A numeração é sequencial por página.
             const rows=episodeData.data||[];
             rows.forEach((ep,index)=>{
               const episodeNumber=(page-1)*100+index+1;
@@ -193,7 +189,7 @@ export default async function handler(req,res){
             hasMore=Boolean(episodeData.pagination?.has_next_page);page++;guard++;
             if(hasMore)await new Promise(resolve=>setTimeout(resolve,380));
           }
-          if(merged.size)break;
+          if(merged.size&&[...merged.values()].every(ep=>ep.name))break;
           await new Promise(resolve=>setTimeout(resolve,380));
         }
       }catch(error){console.warn("Cine-CR: Jikan indisponível para complementar anime",error)}
